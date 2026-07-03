@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quiz Inbox — Guided Notes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<style>
+  .inbox-shell{ max-width:840px; margin:0 auto; padding:28px 20px 100px; }
+  .inbox-head{ display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap; margin-bottom:20px; }
+
+  .inbox-filters{ display:flex; gap:10px; margin-bottom:18px; flex-wrap:wrap; }
+  .inbox-filters select{
+    font-family:var(--font-body); font-size:0.88rem; padding:8px 10px; border:1px solid var(--rule); border-radius:8px; background:var(--card);
+  }
+
+  .submission-row{
+    background:var(--card); border:1px solid var(--rule); border-radius:10px; padding:14px 16px; margin-bottom:10px;
+    display:flex; align-items:center; gap:14px; flex-wrap:wrap; cursor:pointer;
+  }
+  .submission-row:hover{ border-color:var(--rule-strong); }
+  .submission-student{ font-weight:600; font-size:0.94rem; min-width:140px; }
+  .submission-quiz{ color:var(--ink-soft); font-size:0.86rem; flex:1; min-width:160px; }
+  .submission-score{ font-size:0.86rem; font-weight:700; color:var(--pine-dark); }
+  .submission-score.low{ color:var(--warn); }
+  .submission-time{ font-size:0.78rem; color:var(--ink-faint); white-space:nowrap; }
+  .submission-file-tag{ font-size:0.72rem; background:var(--gold-soft); color:var(--gold); padding:2px 8px; border-radius:999px; }
+
+  .detail-overlay{ position:fixed; inset:0; background:rgba(32,38,43,0.45); display:none; align-items:center; justify-content:center; padding:20px; z-index:50; }
+  .detail-overlay.open{ display:flex; }
+  .detail-box{ background:var(--card); border-radius:12px; padding:22px; max-width:520px; width:100%; max-height:80vh; overflow-y:auto; }
+  .detail-box h3{ font-family:var(--font-display); margin:0 0 4px; }
+  .detail-box .detail-meta{ font-size:0.84rem; color:var(--ink-faint); margin:0 0 16px; }
+  .detail-answer{ font-size:0.88rem; margin:0 0 12px; padding-bottom:10px; border-bottom:1px solid var(--rule); }
+  .detail-answer:last-child{ border-bottom:none; }
+  .detail-close{ margin-top:14px; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-inner">
+    <div class="brand"><span class="brand-mark">Guided Notes<span class="dot">.</span></span><span class="mode-pill" style="background:var(--slate-soft);color:var(--slate);">Quiz Inbox</span></div>
+    <div id="accountBadge" style="margin-left:auto;"></div>
+  </div>
+</div>
+
+<div class="inbox-shell">
+  <a class="back-link" href="home.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M11 18l-6-6 6-6"/></svg> Home</a>
+  <div class="inbox-head">
+    <div><h1 style="font-family:var(--font-display);font-weight:600;font-size:1.5rem;margin:0 0 4px;">Quiz submissions</h1>
+    <p style="margin:0;color:var(--ink-soft);font-size:0.9rem;">Every quiz your students have turned in.</p></div>
+  </div>
+  <div class="inbox-filters">
+    <select id="quizFilter"><option value="">All quizzes</option></select>
+  </div>
+  <div id="submissionList"></div>
+</div>
+
+<div class="detail-overlay" id="detailOverlay">
+  <div class="detail-box" id="detailBox"></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="auth.js"></script>
+<script>
+(function(){
+  "use strict";
+
+  var allSubmissions = [];
+
+  function esc(s){ return String(s == null ? "" : s).replace(/[&<>"]/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]; }); }
+  function fmtDate(iso){
+    if(!iso) return "";
+    var d = new Date(iso);
+    return d.toLocaleString(undefined, { month:"short", day:"numeric", hour:"numeric", minute:"2-digit" });
+  }
+
+  function renderList(filterQuizId){
+    var list = document.getElementById("submissionList");
+    var rows = allSubmissions.filter(function(s){ return !filterQuizId || s.quiz_id === filterQuizId; });
+
+    if(rows.length === 0){
+      list.innerHTML = '<p class="empty-state">No submissions yet' + (filterQuizId ? " for this quiz." : ".") + '</p>';
+      return;
+    }
+
+    list.innerHTML = rows.map(function(s, i){
+      var pct = s.score_total ? Math.round((s.score_earned / s.score_total) * 100) : 0;
+      return '<div class="submission-row" data-index="'+i+'" data-real-index="'+allSubmissions.indexOf(s)+'">' +
+        '<span class="submission-student">'+esc(s.student_name || "Unknown")+'</span>' +
+        '<span class="submission-quiz">'+esc(s.quiz_title)+'</span>' +
+        '<span class="submission-score'+(pct<60?" low":"")+'">'+s.score_earned+'/'+s.score_total+' ('+pct+'%)</span>' +
+        (s.file_name ? '<span class="submission-file-tag">📎 '+esc(s.file_name)+'</span>' : '') +
+        '<span class="submission-time">'+fmtDate(s.submitted_at)+'</span>' +
+      '</div>';
+    }).join("");
+
+    list.querySelectorAll(".submission-row").forEach(function(el){
+      el.addEventListener("click", function(){
+        openDetail(allSubmissions[+el.getAttribute("data-real-index")]);
+      });
+    });
+  }
+
+  function openDetail(sub){
+    var answers = sub.answers || {};
+    var box = document.getElementById("detailBox");
+    box.innerHTML =
+      '<h3>'+esc(sub.student_name)+'</h3>' +
+      '<p class="detail-meta">'+esc(sub.quiz_title)+' · '+fmtDate(sub.submitted_at)+' · Score: '+sub.score_earned+'/'+sub.score_total+'</p>' +
+      Object.keys(answers).map(function(qid){
+        var val = answers[qid];
+        var display = Array.isArray(val)
+          ? (val.length && typeof val[0] === "object" ? val.map(function(p){ return "("+p.x+","+p.y+")"; }).join(", ") : val.join(", "))
+          : (typeof val === "object" ? JSON.stringify(val) : String(val));
+        return '<div class="detail-answer"><strong>'+esc(qid)+':</strong> '+esc(display)+'</div>';
+      }).join("") +
+      (sub.file_name ? '<div class="detail-answer">📎 Attached file noted: <strong>'+esc(sub.file_name)+'</strong> (collect this separately — files aren\'t stored here)</div>' : "") +
+      '<button class="btn detail-close" id="detailCloseBtn">Close</button>';
+    document.getElementById("detailCloseBtn").addEventListener("click", closeDetail);
+    document.getElementById("detailOverlay").classList.add("open");
+  }
+  function closeDetail(){ document.getElementById("detailOverlay").classList.remove("open"); }
+  document.getElementById("detailOverlay").addEventListener("click", function(e){
+    if(e.target === document.getElementById("detailOverlay")) closeDetail();
+  });
+
+  async function loadSubmissions(){
+    var client = GuidedAuth.client;
+    if(!client){
+      document.getElementById("submissionList").innerHTML = '<p class="empty-state">Supabase isn\'t configured yet, so there\'s nothing to load.</p>';
+      return;
+    }
+    var subRes = await client.from("quiz_submissions").select("*").order("submitted_at", { ascending:false });
+    if(subRes.error){
+      document.getElementById("submissionList").innerHTML = '<p class="empty-state">Couldn\'t load submissions: '+esc(subRes.error.message)+'</p>';
+      return;
+    }
+    var subs = subRes.data || [];
+    var studentIds = Array.from(new Set(subs.map(function(s){ return s.student_id; })));
+    var namesById = {};
+    if(studentIds.length){
+      var profRes = await client.from("profiles").select("id, display_name").in("id", studentIds);
+      (profRes.data || []).forEach(function(p){ namesById[p.id] = p.display_name; });
+    }
+    allSubmissions = subs.map(function(s){ return Object.assign({}, s, { student_name: namesById[s.student_id] || "Unknown student" }); });
+
+    var quizFilter = document.getElementById("quizFilter");
+    var seenQuizzes = {};
+    allSubmissions.forEach(function(s){
+      if(!seenQuizzes[s.quiz_id]){
+        seenQuizzes[s.quiz_id] = true;
+        var opt = document.createElement("option");
+        opt.value = s.quiz_id; opt.textContent = s.quiz_title;
+        quizFilter.appendChild(opt);
+      }
+    });
+    quizFilter.addEventListener("change", function(){ renderList(quizFilter.value); });
+
+    renderList("");
+  }
+
+  GuidedAuth.requireAuth(["instructor"]).then(function(profile){
+    if(!profile) return;
+    GuidedAuth.renderAccountBadge(document.getElementById("accountBadge"), profile);
+    loadSubmissions();
+  });
+})();
+</script>
+</body>
+</html>
