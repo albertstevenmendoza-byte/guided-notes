@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Guided Notes — Instructor Answer Key</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div class="instructor-banner">Instructor copy — contains answer key. Don't screen-share this page or send this link to students.</div>
+
+<div class="topbar">
+  <div class="topbar-inner">
+    <div class="brand">
+      <a href="home.html" style="font-size:0.8rem;color:var(--ink-faint);margin-right:10px;" title="Home">←</a>
+      <span class="brand-mark">Guided Notes<span class="dot">.</span></span>
+      <span class="mode-pill">Instructor</span>
+    </div>
+    <div class="search-wrap" id="searchWrap">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+      <input type="text" id="searchInput" placeholder="Search notes…" autocomplete="off">
+    </div>
+    <div id="accountBadge" style="margin-left:12px;"></div>
+  </div>
+</div>
+
+<main id="app"></main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="auth.js"></script>
+<script src="data.js"></script>
+<script src="app.js"></script>
+<script>
+  document.addEventListener("DOMContentLoaded", async function(){
+    // instructor-only — students who guess this URL get bounced to home.html
+    var profile = await GuidedAuth.requireAuth(["instructor"]);
+    if(!profile) return;
+    GuidedAuth.renderAccountBadge(document.getElementById("accountBadge"), profile);
+    GuidedNotesApp.init("instructor");
+  });
+</script>
+</body>
+</html>
