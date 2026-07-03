@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sign In — Guided Notes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<style>
+  body{ display:flex; align-items:center; justify-content:center; min-height:100vh; }
+  .login-card{ width:100%; max-width:360px; background:var(--card); border:1px solid var(--rule); border-radius:14px; padding:32px 28px; box-shadow:var(--shadow); }
+  .login-brand{ text-align:center; margin-bottom:22px; }
+  .login-brand .brand-mark{ font-size:1.5rem; }
+  .login-field{ margin-bottom:14px; }
+  .login-field label{ font-size:0.78rem; font-weight:600; color:var(--ink-soft); display:block; margin-bottom:6px; }
+  .login-field input{
+    width:100%; font-family:var(--font-body); font-size:1rem; padding:10px 12px;
+    border:1px solid var(--rule); border-radius:8px; background:var(--paper); color:var(--ink);
+  }
+  .login-field input:focus{ outline:none; border-color:var(--slate); background:var(--card); }
+  .login-btn{ width:100%; margin-top:6px; justify-content:center; padding:11px; font-size:0.96rem; }
+  .login-error{
+    display:none; background:var(--warn-soft); color:var(--warn); font-size:0.84rem; font-weight:600;
+    padding:9px 12px; border-radius:8px; margin-bottom:14px;
+  }
+  .login-hint{ text-align:center; font-size:0.78rem; color:var(--ink-faint); margin-top:16px; }
+  .config-warning{
+    background:var(--gold-soft); color:var(--gold); font-size:0.82rem; padding:10px 12px; border-radius:8px; margin-bottom:16px;
+  }
+</style>
+</head>
+<body>
+
+<div class="login-card">
+  <div class="login-brand"><span class="brand-mark">Guided Notes<span class="dot" style="color:var(--pine);">.</span></span></div>
+  <div class="config-warning" id="configWarning" style="display:none;">
+    Supabase isn't configured yet in <code>auth.js</code> — running in dev mode, sign-in is skipped.
+  </div>
+  <div class="login-error" id="loginError"></div>
+  <form id="loginForm">
+    <div class="login-field"><label for="username">Username</label><input type="text" id="username" autocomplete="username" autocapitalize="off" required></div>
+    <div class="login-field"><label for="password">Password</label><input type="password" id="password" autocomplete="current-password" required></div>
+    <button type="submit" class="btn btn-primary login-btn" id="loginBtn">Sign in</button>
+  </form>
+  <p class="login-hint">Don't have a username and password? Ask your instructor.</p>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="auth.js"></script>
+<script>
+(function(){
+  "use strict";
+
+  if(!GuidedAuth.isConfigured()){
+    document.getElementById("configWarning").style.display = "block";
+  }
+
+  // Already signed in? Skip straight past the login form.
+  GuidedAuth.getProfile().then(function(profile){
+    if(profile) window.location.href = "home.html";
+  });
+
+  document.getElementById("loginForm").addEventListener("submit", async function(e){
+    e.preventDefault();
+    var username = document.getElementById("username").value;
+    var password = document.getElementById("password").value;
+    var errorEl = document.getElementById("loginError");
+    var btn = document.getElementById("loginBtn");
+
+    errorEl.style.display = "none";
+    btn.disabled = true;
+    btn.textContent = "Signing in…";
+
+    var result = await GuidedAuth.signIn(username, password);
+
+    btn.disabled = false;
+    btn.textContent = "Sign in";
+
+    if(result.error){
+      errorEl.textContent = result.error;
+      errorEl.style.display = "block";
+      return;
+    }
+    window.location.href = "home.html";
+  });
+})();
+</script>
+</body>
+</html>
