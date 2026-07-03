@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quizzes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<style>
+  .quiz-shell{ max-width:720px; margin:0 auto; padding:28px 20px 100px; }
+  .quiz-status-pill{
+    font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:0.06em;
+    padding:3px 9px; border-radius:999px; display:inline-block;
+  }
+  .quiz-status-pill.not-started{ background:var(--paper-alt); color:var(--ink-faint); }
+  .quiz-status-pill.in-progress{ background:var(--slate-soft); color:var(--slate); }
+  .quiz-status-pill.submitted{ background:var(--pine-soft); color:var(--pine-dark); }
+
+  .quiz-name-field{
+    background:var(--card); border:1px solid var(--rule); border-radius:10px; padding:14px 16px; margin-bottom:20px;
+  }
+  .quiz-name-field label{ font-size:0.78rem; font-weight:600; color:var(--ink-soft); display:block; margin-bottom:6px; }
+  .quiz-name-field input{
+    width:100%; font-family:var(--font-body); font-size:0.98rem; padding:8px 10px;
+    border:1px solid var(--rule); border-radius:7px; background:var(--paper);
+  }
+
+  .quiz-question{ background:var(--card); border:1px solid var(--rule); border-radius:12px; padding:18px 20px; margin-bottom:16px; }
+  .quiz-question-head{ display:flex; justify-content:space-between; align-items:baseline; gap:10px; margin-bottom:10px; }
+  .quiz-question-num{ font-family:var(--font-display); font-weight:600; font-size:1.02rem; }
+  .quiz-question-pts{ font-size:0.76rem; color:var(--ink-faint); white-space:nowrap; }
+  .quiz-prompt{ font-size:1rem; line-height:1.6; margin:0 0 14px; }
+
+  .quiz-choice-list{ display:flex; flex-direction:column; gap:8px; }
+  .quiz-choice{
+    display:flex; align-items:center; gap:10px; padding:9px 12px; border:1px solid var(--rule);
+    border-radius:8px; background:var(--paper); cursor:pointer;
+  }
+  .quiz-choice:has(input:checked){ border-color:var(--slate); background:var(--slate-soft); }
+  .quiz-choice input{ flex-shrink:0; }
+
+  .quiz-match-row{ display:flex; align-items:center; gap:10px; margin-bottom:8px; flex-wrap:wrap; }
+  .quiz-match-left{ min-width:150px; font-weight:600; font-size:0.92rem; }
+  .quiz-match-row select{
+    flex:1; min-width:180px; font-family:var(--font-body); font-size:0.92rem; padding:7px 9px;
+    border:1px solid var(--rule); border-radius:7px; background:var(--paper);
+  }
+
+  .quiz-short-input{
+    width:100%; font-family:var(--font-body); font-size:0.98rem; padding:9px 11px;
+    border:1px solid var(--rule); border-radius:8px; background:var(--paper);
+  }
+
+  .quiz-submit-bar{ text-align:center; margin-top:24px; }
+  .quiz-unanswered-note{ font-size:0.82rem; color:var(--ink-faint); margin-top:10px; }
+
+  /* Results */
+  .results-score-card{
+    background:var(--pine-soft); border:1px solid var(--pine); border-radius:12px; padding:20px; text-align:center; margin-bottom:20px;
+  }
+  .results-score-card.warn{ background:var(--warn-soft); border-color:var(--warn); }
+  .results-score-num{ font-family:var(--font-display); font-weight:700; font-size:2.2rem; color:var(--pine-dark); }
+  .results-score-label{ font-size:0.88rem; color:var(--ink-soft); margin-top:4px; }
+  .results-graph-note{ font-size:0.82rem; color:var(--ink-faint); margin-top:10px; }
+
+  .result-row{ display:flex; gap:10px; align-items:flex-start; padding:12px 0; border-bottom:1px solid var(--rule); }
+  .result-row:last-child{ border-bottom:none; }
+  .result-badge{
+    flex-shrink:0; width:22px; height:22px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+    font-size:0.78rem; font-weight:700; color:#fff; margin-top:2px;
+  }
+  .result-badge.correct{ background:var(--pine); }
+  .result-badge.incorrect{ background:var(--warn); }
+  .result-badge.review{ background:var(--gold); }
+  .result-body{ flex:1; }
+  .result-prompt{ font-size:0.94rem; font-weight:600; margin:0 0 4px; }
+  .result-your-answer{ font-size:0.86rem; color:var(--ink-soft); margin:0; }
+  .result-correct-answer{ font-size:0.86rem; color:var(--pine-dark); margin:2px 0 0; }
+
+  .submission-panel{ background:var(--card); border:1px solid var(--rule); border-radius:12px; padding:18px 20px; margin-top:20px; }
+  .submission-panel h3{ font-family:var(--font-display); font-size:1.02rem; margin:0 0 12px; }
+  .file-input-row{ margin-bottom:14px; }
+  .file-input-row input[type="file"]{ font-size:0.86rem; }
+  .file-note{ font-size:0.78rem; color:var(--ink-faint); margin-top:6px; }
+  .submission-actions{ display:flex; gap:10px; flex-wrap:wrap; margin-top:14px; }
+
+  @media print{
+    .quiz-submit-bar, .submission-panel, .quiz-status-pill, .back-link{ display:none !important; }
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-inner">
+    <div class="brand"><a href="home.html" style="font-size:0.8rem;color:var(--ink-faint);margin-right:10px;" title="Home">←</a><span class="brand-mark">Guided Notes<span class="dot">.</span></span><span class="mode-pill" style="background:var(--slate-soft);color:var(--slate);">Quizzes</span></div>
+    <div id="accountBadge" style="margin-left:auto;"></div>
+  </div>
+</div>
+
+<div class="quiz-shell" id="app"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="auth.js"></script>
+<script src="quizzes.js"></script>
+<script src="app.js"></script>
+<script>
+(function(){
+  "use strict";
+
+  var STORAGE_KEY = "guidedQuizAnswers_v1";
+  var app = document.getElementById("app");
+  var numOr = GuidedNotesApp.numOr;
+  var esc = GuidedNotesApp.escapeHtml;
+  var currentProfile = null;
+
+  function loadStore(){
+    try{ var raw = localStorage.getItem(STORAGE_KEY); return raw ? JSON.parse(raw) : {}; }
+    catch(e){ return {}; }
+  }
+  function saveStore(){
+    try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(qStore)); }catch(e){ console.warn("Could not save quiz progress:", e); }
+  }
+  var qStore = loadStore(); // { [quizId]: { name, answers:{qid:val}, submitted, submittedAt } }
+
+  function getRoute(){
+    var m = (location.hash||"").match(/^#\/take\/(.+)$/);
+    return m ? { view:"take", id:decodeURIComponent(m[1]) } : { view:"library" };
+  }
+
+  /* ---------------- scoring ---------------- */
+  function questionPoints(q){
+    if(q.points != null) return q.points;
+    if(q.type === "match") return (q.left||[]).length;
+    return 1;
+  }
+
+  function scoreQuiz(quiz, answers){
+    var total = 0, earned = 0;
+    var breakdown = quiz.questions.map(function(q){
+      var pts = questionPoints(q);
+      var ak = (quiz.answerKey && quiz.answerKey[q.id]) || {};
+      if(q.type === "graph"){
+        return { id:q.id, type:"graph", auto:false, points:pts };
+      }
+      total += pts;
+      var correct = false, yourAnswerText = "", correctAnswerText = "";
+      if(q.type === "mc"){
+        var given = answers[q.id];
+        var givenArr = (Array.isArray(given) ? given.slice() : (given ? [given] : [])).sort();
+        var expected = (ak.correct||[]).slice().sort();
+        correct = givenArr.length > 0 && JSON.stringify(givenArr) === JSON.stringify(expected);
+        yourAnswerText = givenArr.length ? givenArr.join(", ") : "(no answer)";
+        correctAnswerText = (ak.correct||[]).join(", ");
+      } else if(q.type === "short"){
+        var norm = function(s){ return String(s||"").trim().toLowerCase(); };
+        var accept = (ak.accept||[]).map(norm);
+        correct = accept.indexOf(norm(answers[q.id])) > -1;
+        yourAnswerText = answers[q.id] ? answers[q.id] : "(no answer)";
+        correctAnswerText = (ak.accept||[])[0] || "";
+      } else if(q.type === "match"){
+        var given2 = answers[q.id] || {};
+        var expected2 = ak.correct || {};
+        var keys = Object.keys(expected2);
+        correct = keys.length > 0 && keys.every(function(k){ return given2[k] === expected2[k]; });
+        yourAnswerText = keys.map(function(k){ return k + " → " + (given2[k] || "—"); }).join("; ");
+        correctAnswerText = keys.map(function(k){ return k + " → " + expected2[k]; }).join("; ");
+      }
+      if(correct) earned += pts;
+      return { id:q.id, type:q.type, auto:true, correct:correct, points:pts, yourAnswerText:yourAnswerText, correctAnswerText:correctAnswerText };
+    });
+    return { total:total, earned:earned, breakdown:breakdown };
+  }
+
+  /* ---------------- library ---------------- */
+  function renderLibrary(){
+    var html = '<div class="library-head"><h1>Quizzes</h1><p>Pick a quiz to begin. Your progress saves automatically on this device.</p></div>';
+    var groups = {}, order = [];
+    QUIZZES.slice().sort(function(a,b){ return (a.date||"").localeCompare(b.date||""); }).forEach(function(q){
+      var key = q.unit || "Quizzes";
+      if(!groups[key]){ groups[key] = []; order.push(key); }
+      groups[key].push(q);
+    });
+    order.forEach(function(groupName){
+      html += '<div class="unit-group"><div class="unit-label"><span>'+esc(groupName)+'</span></div><div class="card-grid">';
+      groups[groupName].forEach(function(quiz){
+        var entry = qStore[quiz.id];
+        var statusHtml, cta;
+        if(entry && entry.submitted){
+          var s = scoreQuiz(quiz, entry.answers||{});
+          var pct = s.total ? Math.round(s.earned/s.total*100) : 0;
+          statusHtml = '<span class="quiz-status-pill submitted">Submitted — '+s.earned+'/'+s.total+' ('+pct+'%)</span>';
+          cta = "View results";
+        } else if(entry && entry.answers && Object.keys(entry.answers).length){
+          statusHtml = '<span class="quiz-status-pill in-progress">In progress</span>';
+          cta = "Continue";
+        } else {
+          statusHtml = '<span class="quiz-status-pill not-started">Not started</span>';
+          cta = "Start";
+        }
+        html += '<a class="note-card" href="#/take/'+encodeURIComponent(quiz.id)+'">' +
+          '<div class="note-card-top"><h3>'+esc(quiz.title)+'</h3><time>'+esc(quiz.date||"")+'</time></div>' +
+          statusHtml +
+          '<div class="note-card-cta">'+cta+' <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M13 6l6 6-6 6"/></svg></div>' +
+        '</a>';
+      });
+      html += '</div></div>';
+    });
+    app.innerHTML = html;
+  }
+
+  /* ---------------- question rendering (taking mode) ---------------- */
+  function renderQuestion(quiz, q, idx, answers){
+    var pts = questionPoints(q);
+    var body = "";
+
+    if(q.type === "mc"){
+      var given = answers[q.id];
+      var givenArr = Array.isArray(given) ? given : (given ? [given] : []);
+      var inputType = q.multiple ? "checkbox" : "radio";
+      body = '<div class="quiz-choice-list">' + q.choices.map(function(choice, ci){
+        var checked = givenArr.indexOf(choice) > -1 ? "checked" : "";
+        return '<label class="quiz-choice"><input type="'+inputType+'" name="q_'+q.id+'" value="'+esc(choice)+'" data-qid="'+q.id+'" data-qtype="mc" data-multiple="'+(!!q.multiple)+'" '+checked+'> '+esc(choice)+'</label>';
+      }).join("") + '</div>';
+    }
+
+    if(q.type === "short"){
+      body = '<input type="text" class="quiz-short-input" data-qid="'+q.id+'" data-qtype="short" value="'+esc(answers[q.id]||"")+'" placeholder="Type your answer…">';
+    }
+
+    if(q.type === "match"){
+      var given3 = answers[q.id] || {};
+      body = (q.left||[]).map(function(leftItem){
+        var opts = '<option value="">— choose —</option>' + (q.right||[]).map(function(r){
+          return '<option value="'+esc(r)+'" '+(given3[leftItem]===r?"selected":"")+'>'+esc(r)+'</option>';
+        }).join("");
+        return '<div class="quiz-match-row"><span class="quiz-match-left">'+esc(leftItem)+'</span>' +
+          '<select data-qid="'+q.id+'" data-qtype="match" data-match-left="'+esc(leftItem)+'">'+opts+'</select></div>';
+      }).join("");
+    }
+
+    if(q.type === "graph"){
+      var graphBlock = { type:"graph", key:q.id, instructions:"", xMin:q.xMin, xMax:q.xMax, yMin:q.yMin, yMax:q.yMax, xStep:q.xStep, yStep:q.yStep, line:q.line||null };
+      body = GuidedNotesApp.blockToHtml(graphBlock, quiz.id, "student", answers, {});
+    }
+
+    return '<div class="quiz-question" data-question-index="'+idx+'">' +
+      '<div class="quiz-question-head"><span class="quiz-question-num">Question '+(idx+1)+'</span><span class="quiz-question-pts">'+pts+' pt'+(pts===1?"":"s")+'</span></div>' +
+      '<p class="quiz-prompt">'+esc(q.prompt)+'</p>' +
+      body +
+    '</div>';
+  }
+
+  function renderTaking(quiz){
+    if(!qStore[quiz.id]) qStore[quiz.id] = { name: currentProfile.display_name, answers:{}, submitted:false };
+    var entry = qStore[quiz.id];
+    entry.name = currentProfile.display_name; // always trust the signed-in identity, not free text
+    var answers = entry.answers;
+
+    var html =
+      '<a class="back-link" href="#/"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M11 18l-6-6 6-6"/></svg> All quizzes</a>' +
+      '<div class="note-title-row"><h1>'+esc(quiz.title)+'</h1></div>' +
+      '<p class="note-meta">'+esc(quiz.unit||"")+(quiz.unit?" · ":"")+esc(quiz.date||"")+' · Signed in as '+esc(currentProfile.display_name)+'</p>' +
+      quiz.questions.map(function(q, i){ return renderQuestion(quiz, q, i, answers); }).join("") +
+      '<div class="quiz-submit-bar">' +
+        '<button class="btn btn-primary" id="submitQuizBtn">Submit quiz</button>' +
+        '<p class="quiz-unanswered-note">You can\'t change your answers after submitting.</p>' +
+      '</div>';
+
+    app.innerHTML = html;
+
+    app.querySelectorAll("[data-qtype]").forEach(function(el){
+      el.addEventListener(el.tagName === "SELECT" || el.type === "text" ? "input" : "change", function(){
+        var qid = el.getAttribute("data-qid");
+        var qtype = el.getAttribute("data-qtype");
+        if(qtype === "mc"){
+          if(el.getAttribute("data-multiple") === "true"){
+            var checked = Array.from(app.querySelectorAll('input[name="q_'+qid+'"]:checked')).map(function(c){ return c.value; });
+            answers[qid] = checked;
+          } else {
+            answers[qid] = el.value;
+          }
+        } else if(qtype === "short"){
+          answers[qid] = el.value;
+        } else if(qtype === "match"){
+          var leftItem = el.getAttribute("data-match-left");
+          if(!answers[qid]) answers[qid] = {};
+          answers[qid][leftItem] = el.value;
+        }
+        saveStore();
+      });
+    });
+
+    GuidedNotesApp.wireGraphClicks(app, function(quizId, key, x, y){
+      if(!answers[key]) answers[key] = [];
+      var pts = answers[key];
+      var idx = -1;
+      for(var i=0;i<pts.length;i++){ if(pts[i].x===x && pts[i].y===y){ idx=i; break; } }
+      if(idx > -1) pts.splice(idx,1); else pts.push({x:x,y:y});
+      saveStore();
+      renderTaking(quiz); // re-render to reflect the new point
+    });
+
+    document.getElementById("submitQuizBtn").addEventListener("click", async function(){
+      var unanswered = quiz.questions.filter(function(q){
+        var a = answers[q.id];
+        if(q.type === "match") return !a || Object.keys(a).length < (q.left||[]).length;
+        if(q.type === "graph") return !Array.isArray(a) || a.length === 0;
+        return a == null || a === "" || (Array.isArray(a) && a.length === 0);
+      }).length;
+      var msg = unanswered > 0
+        ? "You have "+unanswered+" unanswered question"+(unanswered===1?"":"s")+". Submit anyway?"
+        : "Submit your answers? You can't change them afterward.";
+      if(!confirm(msg)) return;
+      entry.submitted = true;
+      entry.submittedAt = new Date().toISOString();
+      saveStore();
+
+      // Send to the instructor's inbox. Wrapped so a Supabase hiccup never
+      // blocks the student from seeing their results — the local copy
+      // (and the download/email options on the results screen) still work
+      // regardless of whether this succeeds.
+      if(GuidedAuth.client && currentProfile){
+        try{
+          var s = scoreQuiz(quiz, answers);
+          var insertRes = await GuidedAuth.client.from("quiz_submissions").insert({
+            student_id: currentProfile.id,
+            quiz_id: quiz.id,
+            quiz_title: quiz.title,
+            answers: answers,
+            score_earned: s.earned,
+            score_total: s.total
+          }).select().single();
+          if(insertRes.error) throw insertRes.error;
+          entry.supabaseSubmissionId = insertRes.data.id;
+          saveStore();
+        }catch(err){
+          console.warn("Couldn't send this submission to your instructor's inbox — your results are still saved on this device.", err);
+        }
+      }
+
+      renderResults(quiz);
+    });
+  }
+
+  /* ---------------- results / submission ---------------- */
+  var uploadedFileName = "";
+
+  function renderResults(quiz){
+    var entry = qStore[quiz.id] || { name:"", answers:{}, submitted:true };
+    var answers = entry.answers || {};
+    var s = scoreQuiz(quiz, answers);
+    var pct = s.total ? Math.round(s.earned/s.total*100) : 0;
+    var hasGraphQ = s.breakdown.some(function(b){ return b.type === "graph"; });
+
+    var scoreCardClass = pct < 60 ? "warn" : "";
+    var html =
+      '<a class="back-link" href="#/"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M11 18l-6-6 6-6"/></svg> All quizzes</a>' +
+      '<div class="note-title-row"><h1>'+esc(quiz.title)+' — Results</h1></div>' +
+      '<p class="note-meta">'+esc(entry.name||"Unnamed")+'</p>' +
+      '<div class="results-score-card '+scoreCardClass+'">' +
+        '<div class="results-score-num">'+s.earned+' / '+s.total+'</div>' +
+        '<div class="results-score-label">'+pct+'% auto-graded' + (hasGraphQ ? '' : '') + '</div>' +
+        (hasGraphQ ? '<div class="results-graph-note">This score doesn\'t include the graph question(s) below — those need your teacher to review.</div>' : '') +
+      '</div>';
+
+    html += s.breakdown.map(function(b, i){
+      var q = quiz.questions[i];
+      if(b.type === "graph"){
+        var pts = answers[b.id] || [];
+        return '<div class="result-row"><span class="result-badge review">?</span><div class="result-body">' +
+          '<p class="result-prompt">Q'+(i+1)+'. '+esc(q.prompt)+'</p>' +
+          '<p class="result-your-answer">You plotted: '+(pts.length ? pts.map(function(p){ return "("+p.x+", "+p.y+")"; }).join(", ") : "(nothing plotted)")+'</p>' +
+          '<p class="result-correct-answer">For your teacher to review — not auto-scored.</p>' +
+        '</div></div>';
+      }
+      return '<div class="result-row"><span class="result-badge '+(b.correct?"correct":"incorrect")+'">'+(b.correct?"✓":"✕")+'</span><div class="result-body">' +
+        '<p class="result-prompt">Q'+(i+1)+'. '+esc(q.prompt)+'</p>' +
+        '<p class="result-your-answer">Your answer: '+esc(b.yourAnswerText)+'</p>' +
+        (!b.correct ? '<p class="result-correct-answer">Correct answer: '+esc(b.correctAnswerText)+'</p>' : '') +
+      '</div></div>';
+    }).join("");
+
+    html +=
+      '<div class="submission-panel">' +
+        '<h3>Turn in your work</h3>' +
+        (quiz.allowUpload ?
+          '<div class="file-input-row"><label style="font-size:0.82rem;font-weight:600;color:var(--ink-soft);display:block;margin-bottom:6px;">Attach handwritten work (optional)</label>' +
+          '<input type="file" id="uploadInput" accept="image/*,.pdf">' +
+          '<p class="file-note">This stays on your device — it isn\'t uploaded anywhere automatically. Download or email your results below, then attach this file yourself.</p></div>'
+          : '') +
+        '<div class="submission-actions">' +
+          '<button class="btn btn-primary" id="downloadResultsBtn">Download results</button>' +
+          '<a class="btn" id="emailResultsBtn" href="#">Email results to teacher</a>' +
+          '<button class="btn" id="retakeBtn">Retake quiz</button>' +
+        '</div>' +
+      '</div>';
+
+    app.innerHTML = html;
+
+    if(quiz.allowUpload){
+      document.getElementById("uploadInput").addEventListener("change", async function(e){
+        uploadedFileName = e.target.files[0] ? e.target.files[0].name : "";
+        // Note: only the filename is recorded — the file itself never leaves
+        // this device. It's a reminder in the inbox, not a real attachment.
+        if(GuidedAuth.client && entry.supabaseSubmissionId){
+          try{
+            await GuidedAuth.client.from("quiz_submissions")
+              .update({ file_name: uploadedFileName })
+              .eq("id", entry.supabaseSubmissionId);
+          }catch(err){
+            console.warn("Couldn't update the filename in the instructor's inbox:", err);
+          }
+        }
+      });
+    }
+
+    document.getElementById("downloadResultsBtn").addEventListener("click", function(){ window.print(); });
+
+    document.getElementById("emailResultsBtn").addEventListener("click", function(e){
+      e.preventDefault();
+      var lines = [
+        "Student: " + (entry.name || ""),
+        "Quiz: " + quiz.title,
+        "Score: " + s.earned + "/" + s.total + " (" + pct + "%)" + (hasGraphQ ? " — plus graph question(s) for you to review" : "")
+      ];
+      if(quiz.allowUpload){
+        lines.push(uploadedFileName ? "Attached file (remember to attach manually): " + uploadedFileName : "No file attached.");
+      }
+      lines.push("");
+      lines.push("Answers:");
+      s.breakdown.forEach(function(b, i){
+        var q = quiz.questions[i];
+        if(b.type === "graph"){
+          var pts = answers[b.id] || [];
+          lines.push("- " + q.prompt + ": " + (pts.length ? pts.map(function(p){ return "("+p.x+","+p.y+")"; }).join(" ") : "(nothing plotted)"));
+        } else {
+          lines.push("- " + q.prompt + ": " + b.yourAnswerText + (b.correct ? " [correct]" : " [incorrect]"));
+        }
+      });
+      var subject = encodeURIComponent(quiz.title + " — " + (entry.name || "Student") + " submission");
+      var body = encodeURIComponent(lines.join("\n"));
+      window.location.href = "mailto:" + encodeURIComponent(quiz.instructorEmail||"") + "?subject=" + subject + "&body=" + body;
+    });
+
+    document.getElementById("retakeBtn").addEventListener("click", function(){
+      if(!confirm("Clear your answers and retake this quiz?")) return;
+      qStore[quiz.id] = { name: entry.name, answers:{}, submitted:false };
+      saveStore();
+      renderTaking(quiz);
+    });
+  }
+
+  /* ---------------- dispatch ---------------- */
+  function render(){
+    var route = getRoute();
+    if(route.view === "take"){
+      var quiz = QUIZZES.filter(function(q){ return q.id === route.id; })[0];
+      if(!quiz){ app.innerHTML = '<div class="empty-state">Couldn\'t find that quiz.<br><a class="link-quiet" href="#/">Back to library</a></div>'; return; }
+      var entry = qStore[quiz.id];
+      if(entry && entry.submitted) renderResults(quiz);
+      else renderTaking(quiz);
+    } else {
+      renderLibrary();
+    }
+    window.scrollTo(0,0);
+  }
+
+  window.addEventListener("hashchange", render);
+
+  GuidedAuth.requireAuth(["student","instructor"]).then(function(profile){
+    if(!profile) return;
+    currentProfile = profile;
+    GuidedAuth.renderAccountBadge(document.getElementById("accountBadge"), profile);
+    render();
+  });
+})();
+</script>
+</body>
+</html>
