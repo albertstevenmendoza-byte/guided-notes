@@ -1,0 +1,787 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Guided Notes — Builder</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<style>
+  body.is-builder{ background:var(--paper); }
+  .builder-topbar-inner{ max-width:1180px; }
+  .mode-pill.builder{ background:var(--slate-soft); color:var(--slate); }
+
+  .builder-shell{
+    max-width:1180px; margin:0 auto; padding:24px 20px 100px;
+    display:grid; grid-template-columns:1fr; gap:24px;
+  }
+  @media(min-width:980px){
+    .builder-shell{ grid-template-columns:minmax(0,1fr) minmax(340px,420px); align-items:start; }
+  }
+
+  .panel{ background:var(--card); border:1px solid var(--rule); border-radius:12px; padding:18px 20px; box-shadow:var(--shadow); }
+  .panel + .panel{ margin-top:18px; }
+  .panel h2{ font-family:var(--font-display); font-size:1.05rem; font-weight:600; margin:0 0 14px; }
+
+  .meta-grid{ display:grid; grid-template-columns:1fr; gap:12px; }
+  @media(min-width:560px){ .meta-grid{ grid-template-columns:2fr 1fr 1fr; } }
+
+  .field{ display:flex; flex-direction:column; gap:5px; }
+  .field label{ font-size:0.74rem; font-weight:600; text-transform:uppercase; letter-spacing:0.06em; color:var(--ink-faint); }
+  .field input[type="text"], .field input[type="date"], .field select, .field textarea{
+    font-family:var(--font-body); font-size:0.94rem; padding:8px 10px;
+    border:1px solid var(--rule); border-radius:7px; background:var(--paper); color:var(--ink); width:100%;
+  }
+  .field textarea{ resize:vertical; min-height:60px; line-height:1.5; }
+  .field input:focus, .field textarea:focus, .field select:focus{ outline:none; border-color:var(--slate); background:var(--card); }
+  .field-blankable:focus{ box-shadow:0 0 0 3px var(--slate-soft); }
+
+  .insert-bar{
+    position:sticky; top:0; z-index:15; background:var(--card); border:1px solid var(--rule); border-radius:10px;
+    padding:10px 14px; margin-bottom:18px; display:flex; align-items:center; gap:10px; flex-wrap:wrap; box-shadow:var(--shadow);
+  }
+  .insert-bar .hint{ font-size:0.82rem; color:var(--ink-faint); flex:1; min-width:160px; }
+  .insert-bar .hint strong{ color:var(--ink-soft); }
+
+  .block-list{ display:flex; flex-direction:column; gap:14px; }
+  .block-card{ border:1px solid var(--rule); border-left:4px solid var(--ink-faint); border-radius:10px; padding:14px 16px; background:var(--paper-alt); }
+  .block-card[data-type="heading"]{ border-left-color:var(--ink-soft); }
+  .block-card[data-type="paragraph"]{ border-left-color:var(--slate); }
+  .block-card[data-type="box"]{ border-left-color:var(--gold); }
+  .block-card[data-type="table"]{ border-left-color:var(--pine); }
+  .block-card[data-type="diagram"]{ border-left-color:var(--plum); }
+  .block-card[data-type="graph"]{ border-left-color:var(--warn); }
+
+  .block-card-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
+  .block-type-label{ font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:0.07em; color:var(--ink-soft); }
+  .icon-btn{ display:inline-flex; align-items:center; gap:5px; font-size:0.78rem; font-weight:600; color:var(--warn); padding:4px 8px; border-radius:6px; }
+  .icon-btn:hover{ background:var(--warn-soft); }
+  .icon-btn svg{ width:13px; height:13px; }
+
+  .field-row{ display:flex; flex-direction:column; gap:12px; }
+
+  .table-grid{ display:flex; flex-direction:column; gap:8px; overflow-x:auto; }
+  .table-grid-row{ display:flex; gap:8px; }
+  .table-grid-row input{ flex:1; min-width:120px; }
+  .row-remove{ flex-shrink:0; align-self:center; color:var(--warn); }
+  .table-controls{ display:flex; gap:8px; margin-top:4px; }
+
+  .small-btn{
+    font-size:0.78rem; font-weight:600; padding:6px 10px; border-radius:7px; border:1px solid var(--rule); background:var(--card); color:var(--ink);
+  }
+  .small-btn:hover{ border-color:var(--rule-strong); }
+  .small-btn.accent{ border-color:var(--pine); color:var(--pine-dark); }
+  .small-btn.accent2{ border-color:var(--plum); color:var(--plum); }
+
+  .branch-card{ border:1px dashed var(--rule-strong); border-radius:8px; padding:12px; margin-top:10px; background:var(--card); }
+  .branch-card-head{ display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; font-size:0.8rem; font-weight:600; color:var(--plum); }
+  .leaf-chips{ display:flex; flex-wrap:wrap; gap:8px; margin-top:8px; }
+  .leaf-chip{ display:inline-flex; align-items:center; gap:6px; background:var(--slate-soft); color:var(--slate); font-size:0.8rem; font-weight:600; padding:4px 9px; border-radius:999px; }
+  .leaf-chip button{ color:var(--warn); font-weight:700; line-height:1; }
+
+  .add-block-row{ display:flex; flex-wrap:wrap; gap:8px; margin-top:16px; }
+
+  .answer-panel-row{ display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid var(--rule); }
+  .answer-panel-row:last-child{ border-bottom:none; }
+  .answer-panel-key{ font-family:monospace; font-size:0.82rem; color:var(--ink-soft); width:150px; flex-shrink:0; overflow-wrap:anywhere; }
+  .answer-panel-row input{ flex:1; }
+  .answer-empty{ font-size:0.86rem; color:var(--ink-faint); padding:6px 0; }
+
+  .preview-col{ position:sticky; top:16px; }
+  .preview-pane{ max-height:calc(100vh - 40px); overflow-y:auto; }
+  .preview-pane .content-block:first-of-type h2{ margin-top:0; padding-top:0; border-top:none; }
+  .preview-title{ font-family:var(--font-display); font-weight:600; font-size:1.15rem; margin:0 0 4px; }
+  .preview-meta{ font-size:0.8rem; color:var(--ink-faint); margin:0 0 16px; }
+  .preview-empty{ color:var(--ink-faint); font-size:0.88rem; padding:20px 0; text-align:center; }
+
+  .code-actions{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:10px; }
+  .code-output{
+    width:100%; min-height:220px; font-family:monospace; font-size:0.82rem; line-height:1.5;
+    padding:12px; border-radius:8px; border:1px solid var(--rule); background:var(--ink); color:#E9E5D8; resize:vertical;
+  }
+  .copy-flash{ font-size:0.8rem; color:var(--pine-dark); font-weight:600; opacity:0; transition:opacity .2s; }
+  .copy-flash.show{ opacity:1; }
+  .warn-text{ font-size:0.82rem; color:var(--warn); margin-top:8px; }
+
+  /* modal */
+  .modal-overlay{
+    position:fixed; inset:0; background:rgba(32,38,43,0.45); display:none; align-items:center; justify-content:center; z-index:50; padding:20px;
+  }
+  .modal-overlay.open{ display:flex; }
+  .modal-box{ background:var(--card); border-radius:12px; padding:22px; width:100%; max-width:380px; box-shadow:0 10px 40px rgba(0,0,0,0.25); }
+  .modal-box h3{ font-family:var(--font-display); font-size:1.05rem; margin:0 0 14px; }
+  .modal-box .field{ margin-bottom:12px; }
+  .radio-row{ display:flex; gap:14px; }
+  .radio-row label{ display:flex; align-items:center; gap:6px; font-size:0.85rem; font-weight:500; text-transform:none; letter-spacing:0; color:var(--ink); }
+  .modal-actions{ display:flex; justify-content:flex-end; gap:8px; margin-top:16px; }
+</style>
+</head>
+<body class="is-builder">
+
+<div class="topbar">
+  <div class="topbar-inner builder-topbar-inner">
+    <div class="brand">
+      <a href="home.html" style="font-size:0.8rem;color:var(--ink-faint);margin-right:10px;" title="Home">←</a>
+      <span class="brand-mark">Guided Notes<span class="dot">.</span></span>
+      <span class="mode-pill builder">Builder</span>
+    </div>
+    <div id="accountBadge" style="margin-left:auto;"></div>
+  </div>
+</div>
+
+<div class="builder-shell">
+  <div>
+
+    <div class="panel">
+      <h2>New note set</h2>
+      <div class="meta-grid">
+        <div class="field"><label for="fTitle">Title</label><input type="text" id="fTitle" placeholder="e.g. Frequency Tables"></div>
+        <div class="field"><label for="fUnit">Unit</label><input type="text" id="fUnit" placeholder="e.g. Unit 1"></div>
+        <div class="field"><label for="fDate">Date</label><input type="date" id="fDate"></div>
+      </div>
+    </div>
+
+    <div class="insert-bar">
+      <span class="hint" id="insertHint">Click into any text box below, then hit <strong>Insert Blank</strong> to drop one in at the cursor.</span>
+      <button class="small-btn accent" id="insertBlankBtn">+ Insert Blank</button>
+    </div>
+
+    <div class="panel">
+      <h2>Content</h2>
+      <div class="block-list" id="blockList"></div>
+      <div class="add-block-row">
+        <button class="small-btn" data-add="heading">+ Heading</button>
+        <button class="small-btn" data-add="paragraph">+ Paragraph</button>
+        <button class="small-btn" data-add="box">+ Box</button>
+        <button class="small-btn" data-add="table">+ Table</button>
+        <button class="small-btn accent2" data-add="diagram">+ Diagram</button>
+        <button class="small-btn" data-add="graph" style="border-color:var(--warn);color:var(--warn);">+ Graph</button>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Answer key</h2>
+      <div id="answerPanel"></div>
+    </div>
+
+    <div class="panel">
+      <h2>Get the code</h2>
+      <p style="font-size:0.86rem;color:var(--ink-soft);margin:0 0 12px;">
+        Paste this into <code>data.js</code>, above the line that says
+        "Add your team's next note set below this line."
+      </p>
+      <div class="code-actions">
+        <button class="btn btn-primary" id="generateBtn">Generate code</button>
+        <button class="btn" id="copyBtn" style="display:none;">Copy to clipboard</button>
+        <span class="copy-flash" id="copyFlash">Copied ✓</span>
+      </div>
+      <textarea class="code-output" id="codeOutput" readonly placeholder="Click “Generate code” once your note set looks right in the preview." style="display:none;"></textarea>
+      <div class="warn-text" id="idWarning" style="display:none;"></div>
+    </div>
+
+  </div>
+
+  <div class="preview-col">
+    <div class="panel preview-pane">
+      <h2>Live preview — what students will see</h2>
+      <div id="previewBody"></div>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal-box">
+    <h3 id="modalTitle">Insert a blank</h3>
+    <div class="field">
+      <label for="modalLabel">Label (used to generate a unique key — not shown to students)</label>
+      <input type="text" id="modalLabel" placeholder="e.g. slope">
+    </div>
+    <div class="field" id="modalLengthField">
+      <label>Blank size</label>
+      <div class="radio-row">
+        <label><input type="radio" name="modalLength" value="short" checked> Short</label>
+        <label><input type="radio" name="modalLength" value="long"> Long</label>
+        <label><input type="radio" name="modalLength" value="area"> Multi-line</label>
+      </div>
+    </div>
+    <div class="field">
+      <label for="modalAnswer">Correct answer (optional — you can add this later)</label>
+      <input type="text" id="modalAnswer" placeholder="e.g. the rate of change">
+    </div>
+    <div class="modal-actions">
+      <button class="btn" id="modalCancel">Cancel</button>
+      <button class="btn btn-primary" id="modalSubmit">Insert</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="auth.js"></script>
+<script src="data.js"></script>
+<script src="app.js"></script>
+<script>
+(function(){
+  "use strict";
+
+  var model = {
+    title: "", unit: "", date: "",
+    blocks: [],
+    answers: {}
+  };
+
+  var lastFocusedEl = null;
+  var modalTarget = null; // { kind:"splice", el } or { kind:"leaf", blockIndex, branchIndex }
+
+  var blockList = document.getElementById("blockList");
+  var answerPanel = document.getElementById("answerPanel");
+  var previewBody = document.getElementById("previewBody");
+
+  /* ---------------- path helpers ---------------- */
+  function getPath(obj, path){
+    return path.split(".").reduce(function(o,k){ return (o == null ? undefined : o[k]); }, obj);
+  }
+  function setPath(obj, path, value){
+    var parts = path.split(".");
+    var o = obj;
+    for(var i=0;i<parts.length-1;i++){ o = o[parts[i]]; }
+    o[parts[parts.length-1]] = value;
+  }
+
+  function numOr(v, dflt){ var n = parseFloat(v); return isNaN(n) ? dflt : n; }
+
+  function syncModelFromDom(){
+    document.querySelectorAll("#blockList [data-path]").forEach(function(el){
+      setPath(model, el.getAttribute("data-path"), el.value);
+    });
+    document.querySelectorAll("#answerPanel [data-path]").forEach(function(el){
+      setPath(model, el.getAttribute("data-path"), el.value);
+    });
+    model.title = document.getElementById("fTitle").value;
+    model.unit = document.getElementById("fUnit").value;
+    model.date = document.getElementById("fDate").value;
+
+    // <input type="number"> gives back strings — normalize graph config to real numbers
+    model.blocks.forEach(function(b){
+      if(b.type !== "graph") return;
+      b.xMin = numOr(b.xMin, -10); b.xMax = numOr(b.xMax, 10);
+      b.yMin = numOr(b.yMin, -10); b.yMax = numOr(b.yMax, 10);
+      b.xStep = numOr(b.xStep, 1) || 1; b.yStep = numOr(b.yStep, 1) || 1;
+      if(b.line){ b.line.m = numOr(b.line.m, 1); b.line.b = numOr(b.line.b, 0); }
+    });
+  }
+
+  /* ---------------- key helpers ---------------- */
+  var BLANK_SRC = "\\{\\{b:([a-zA-Z0-9_\\-]+)(?:\\|(long|area))?\\}\\}";
+
+  function slugify(s){
+    return (String(s||"blank").toLowerCase().trim().replace(/[^a-z0-9]+/g,"_").replace(/^_+|_+$/g,"")) || "blank";
+  }
+  function slugifyId(s){
+    return (String(s||"note").toLowerCase().trim().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"")) || "note";
+  }
+
+  function collectAllKeys(){
+    var items = [];
+    var seen = {};
+    var re = new RegExp(BLANK_SRC, "g");
+    function scan(str){
+      var m; re.lastIndex = 0;
+      while((m = re.exec(String(str||""))) !== null){
+        if(!seen[m[1]]){ seen[m[1]] = true; items.push({ key:m[1], kind:"text" }); }
+      }
+    }
+    model.blocks.forEach(function(b){
+      if(b.type === "graph"){
+        if(b.key && !seen[b.key]){ seen[b.key] = true; items.push({ key:b.key, kind:"graph" }); }
+        return;
+      }
+      if(b.html) scan(b.html);
+      if(b.type === "table"){
+        (b.rows||[]).forEach(function(row){ row.forEach(function(c){ scan(c); }); });
+      }
+      if(b.type === "diagram"){
+        (b.branches||[]).forEach(function(br){
+          scan(br.html);
+          (br.leaves||[]).forEach(function(k){ if(!seen[k]){ seen[k]=true; items.push({ key:k, kind:"text" }); } });
+        });
+      }
+    });
+    return items;
+  }
+
+  function uniqueKey(base){
+    var existing = {};
+    collectAllKeys().forEach(function(it){ existing[it.key] = true; });
+    var k = slugify(base), candidate = k, i = 2;
+    while(existing[candidate]){ candidate = k + "_" + i; i++; }
+    return candidate;
+  }
+
+  /* ---------------- block factories ---------------- */
+  function newBlock(type){
+    if(type === "heading") return { type:"heading", text:"" };
+    if(type === "paragraph") return { type:"paragraph", html:"" };
+    if(type === "box") return { type:"box", tone:"key", label:"", html:"" };
+    if(type === "table") return { type:"table", caption:"", headers:["",""], rows:[["",""]] };
+    if(type === "diagram") return { type:"diagram", root:"", branches:[{ html:"", leaves:[] }, { html:"", leaves:[] }] };
+    if(type === "graph") return {
+      type:"graph", key: uniqueKey("graph"), instructions:"",
+      xMin:-10, xMax:10, yMin:-10, yMax:10, xStep:1, yStep:1, line:null
+    };
+  }
+
+  /* ---------------- render: block list ---------------- */
+  function esc(s){ return GuidedNotesApp.escapeHtml(s); }
+
+  function renderForm(){
+    var html = model.blocks.map(function(block, bi){
+      return renderBlockCard(block, bi);
+    }).join("");
+    blockList.innerHTML = html || '<p class="preview-empty">No content yet — add a block below.</p>';
+    wireStructuralButtons();
+    renderAnswerPanel();
+    renderPreview();
+  }
+
+  function renderBlockCard(block, bi){
+    var label = { heading:"Heading", paragraph:"Paragraph", box:"Box", table:"Table", diagram:"Diagram", graph:"Graph" }[block.type];
+    var inner = "";
+
+    if(block.type === "heading"){
+      inner = '<div class="field"><input type="text" data-path="blocks.'+bi+'.text" value="'+esc(block.text)+'" placeholder="Section heading…"></div>';
+    }
+
+    if(block.type === "paragraph"){
+      inner = '<div class="field"><textarea class="field-blankable" data-path="blocks.'+bi+'.html" data-blankable="1" rows="3" placeholder="Type your text, then use Insert Blank to add a blank…">'+esc(block.html)+'</textarea></div>';
+    }
+
+    if(block.type === "box"){
+      inner =
+        '<div class="field-row">' +
+          '<div class="field"><label>Tone</label><select data-path="blocks.'+bi+'.tone">' +
+            ["key","example","tip","question"].map(function(t){
+              var names = { key:"Key Idea (teal)", example:"Example (gold)", tip:"Tip (blue)", question:"Think About It (plum)" };
+              return '<option value="'+t+'"'+(block.tone===t?" selected":"")+'>'+names[t]+'</option>';
+            }).join("") +
+          '</select></div>' +
+          '<div class="field"><label>Label (optional override)</label><input type="text" data-path="blocks.'+bi+'.label" value="'+esc(block.label)+'" placeholder="Leave blank to use the tone default"></div>' +
+          '<div class="field"><label>Text</label><textarea class="field-blankable" data-path="blocks.'+bi+'.html" data-blankable="1" rows="3">'+esc(block.html)+'</textarea></div>' +
+        '</div>';
+    }
+
+    if(block.type === "table"){
+      var colCount = block.headers.length;
+      var headerRow = '<div class="table-grid-row">' + block.headers.map(function(h,ci){
+        return '<input type="text" data-path="blocks.'+bi+'.headers.'+ci+'" value="'+esc(h)+'" placeholder="Column '+(ci+1)+' header">';
+      }).join("") + '<span class="row-remove" data-remove-col="'+bi+'" style="visibility:'+(colCount>1?'visible':'hidden')+'">✕</span></div>';
+
+      var rowsHtml = block.rows.map(function(row, ri){
+        return '<div class="table-grid-row">' + row.map(function(cell, ci){
+          return '<input type="text" class="field-blankable" data-blankable="1" data-path="blocks.'+bi+'.rows.'+ri+'.'+ci+'" value="'+esc(cell)+'" placeholder="Cell">';
+        }).join("") + '<button class="row-remove" data-remove-row="'+bi+':'+ri+'" style="visibility:'+(block.rows.length>1?'visible':'hidden')+'">✕</button></div>';
+      }).join("");
+
+      inner =
+        '<div class="field"><label>Caption (optional)</label><input type="text" data-path="blocks.'+bi+'.caption" value="'+esc(block.caption)+'" placeholder="e.g. Practice: find the slope"></div>' +
+        '<div class="table-grid">' + headerRow + rowsHtml + '</div>' +
+        '<div class="table-controls">' +
+          '<button class="small-btn" data-add-row="'+bi+'">+ Row</button>' +
+          '<button class="small-btn" data-add-col="'+bi+'">+ Column</button>' +
+        '</div>';
+    }
+
+    if(block.type === "diagram"){
+      inner =
+        '<div class="field"><label>Root box text</label><input type="text" data-path="blocks.'+bi+'.root" value="'+esc(block.root)+'" placeholder="e.g. Variable"></div>' +
+        block.branches.map(function(br, bri){
+          var leaves = (br.leaves||[]).map(function(key){
+            return '<span class="leaf-chip">'+esc(key)+'<button data-remove-leaf="'+bi+':'+bri+':'+key+'" title="Remove">✕</button></span>';
+          }).join("");
+          return '<div class="branch-card">' +
+            '<div class="branch-card-head"><span>Branch '+(bri+1)+'</span>' +
+              (block.branches.length>2 ? '<button class="icon-btn" data-remove-branch="'+bi+':'+bri+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>Remove</button>' : "") +
+            '</div>' +
+            '<div class="field"><textarea class="field-blankable" data-blankable="1" data-path="blocks.'+bi+'.branches.'+bri+'.html" rows="2" placeholder="Branch text — use Insert Blank for blanks">'+esc(br.html)+'</textarea></div>' +
+            '<div class="leaf-chips">'+leaves+'<button class="small-btn" data-add-leaf="'+bi+':'+bri+'">+ Leaf box</button></div>' +
+          '</div>';
+        }).join("") +
+        '<div style="margin-top:10px;"><button class="small-btn" data-add-branch="'+bi+'">+ Branch</button></div>';
+    }
+
+    if(block.type === "graph"){
+      var hasLine = !!block.line;
+      inner =
+        '<div class="field"><label>Instructions shown above the grid</label><textarea data-path="blocks.'+bi+'.instructions" rows="2" placeholder="e.g. Plot 3 points on the line.">'+esc(block.instructions)+'</textarea></div>' +
+        '<div class="field-row">' +
+          '<div class="field"><label>X axis (min / max / step)</label><div style="display:flex;gap:6px;">' +
+            '<input type="number" step="any" data-path="blocks.'+bi+'.xMin" value="'+esc(block.xMin)+'">' +
+            '<input type="number" step="any" data-path="blocks.'+bi+'.xMax" value="'+esc(block.xMax)+'">' +
+            '<input type="number" step="any" min="0.01" data-path="blocks.'+bi+'.xStep" value="'+esc(block.xStep)+'">' +
+          '</div></div>' +
+          '<div class="field"><label>Y axis (min / max / step)</label><div style="display:flex;gap:6px;">' +
+            '<input type="number" step="any" data-path="blocks.'+bi+'.yMin" value="'+esc(block.yMin)+'">' +
+            '<input type="number" step="any" data-path="blocks.'+bi+'.yMax" value="'+esc(block.yMax)+'">' +
+            '<input type="number" step="any" min="0.01" data-path="blocks.'+bi+'.yStep" value="'+esc(block.yStep)+'">' +
+          '</div></div>' +
+        '</div>' +
+        '<div class="field" style="margin-top:10px;">' +
+          '<label><input type="checkbox" data-toggle-line="'+bi+'" '+(hasLine?"checked":"")+' style="width:auto;margin-right:6px;">Show a reference line for students</label>' +
+        '</div>' +
+        (hasLine ?
+          '<div class="field-row"><div class="field"><label>Line: y = m·x + b</label><div style="display:flex;gap:6px;align-items:center;">' +
+            '<span style="font-size:0.8rem;color:var(--ink-faint);">m</span><input type="number" step="any" data-path="blocks.'+bi+'.line.m" value="'+esc(block.line.m)+'">' +
+            '<span style="font-size:0.8rem;color:var(--ink-faint);">b</span><input type="number" step="any" data-path="blocks.'+bi+'.line.b" value="'+esc(block.line.b)+'">' +
+          '</div></div></div>' : "") +
+        '<div class="field" style="margin-top:10px;"><label>Answer key name</label><input type="text" data-path="blocks.'+bi+'.key" value="'+esc(block.key)+'" placeholder="unique-key"></div>';
+    }
+
+    return '<div class="block-card" data-type="'+block.type+'">' +
+      '<div class="block-card-head"><span class="block-type-label">'+label+'</span>' +
+        '<button class="icon-btn" data-remove-block="'+bi+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>Remove block</button>' +
+      '</div>' + inner + '</div>';
+  }
+
+  /* ---------------- render: answer key panel ---------------- */
+  function renderAnswerPanel(){
+    var items = collectAllKeys();
+    if(items.length === 0){
+      answerPanel.innerHTML = '<p class="answer-empty">Blanks and graphs you add will show up here so you can fill in the correct answer.</p>';
+      return;
+    }
+    answerPanel.innerHTML = items.map(function(it){
+      if(it.kind === "graph"){
+        if(!model.answers[it.key] || typeof model.answers[it.key] !== "object"){
+          model.answers[it.key] = { points: [] };
+        }
+        var pts = model.answers[it.key].points || [];
+        var chips = pts.map(function(p, pi){
+          return '<span class="leaf-chip">('+p.x+', '+p.y+')<button data-remove-point="'+it.key+':'+pi+'" title="Remove">✕</button></span>';
+        }).join("");
+        return '<div class="answer-panel-row" style="align-items:flex-start;">' +
+          '<span class="answer-panel-key">'+esc(it.key)+' <em style="font-style:normal;color:var(--ink-faint);">(graph)</em></span>' +
+          '<div style="flex:1;">' +
+            '<div class="leaf-chips" style="margin-top:0;">'+chips+'</div>' +
+            '<div style="display:flex;gap:6px;margin-top:8px;align-items:center;">' +
+              '<input type="number" step="any" class="graph-answer-x" placeholder="x" style="width:70px;">' +
+              '<input type="number" step="any" class="graph-answer-y" placeholder="y" style="width:70px;">' +
+              '<button class="small-btn" data-add-point="'+it.key+'">+ Expected point</button>' +
+            '</div>' +
+          '</div>' +
+        '</div>';
+      }
+      var val = model.answers[it.key] || "";
+      return '<div class="answer-panel-row"><span class="answer-panel-key">'+esc(it.key)+'</span>' +
+        '<input type="text" data-path="answers.'+it.key+'" value="'+esc(val)+'" placeholder="Correct answer…"></div>';
+    }).join("");
+
+    answerPanel.querySelectorAll("[data-add-point]").forEach(function(el){
+      el.addEventListener("click", function(){
+        var key = el.getAttribute("data-add-point");
+        var row = el.closest(".answer-panel-row");
+        var x = numOr(row.querySelector(".graph-answer-x").value, null);
+        var y = numOr(row.querySelector(".graph-answer-y").value, null);
+        if(x === null || y === null){ alert("Enter both x and y before adding a point."); return; }
+        mutate(function(){
+          if(!model.answers[key] || typeof model.answers[key] !== "object") model.answers[key] = { points: [] };
+          model.answers[key].points.push({ x:x, y:y });
+        });
+      });
+    });
+    answerPanel.querySelectorAll("[data-remove-point]").forEach(function(el){
+      el.addEventListener("click", function(){
+        var parts = el.getAttribute("data-remove-point").split(":");
+        var key = parts[0], idx = +parts[1];
+        mutate(function(){ model.answers[key].points.splice(idx,1); });
+      });
+    });
+  }
+
+  /* ---------------- render: live preview ---------------- */
+  function renderPreview(){
+    var titleEl = document.getElementById("fTitle");
+    var unitEl = document.getElementById("fUnit");
+    var title = titleEl ? titleEl.value : model.title;
+    var unit = unitEl ? unitEl.value : model.unit;
+
+    if(model.blocks.length === 0){
+      previewBody.innerHTML = '<div class="preview-empty">Add a block to see it here.</div>';
+      return;
+    }
+    var blocksHtml = model.blocks.map(function(b){
+      return GuidedNotesApp.blockToHtml(b, "__preview__", "preview", {}, {});
+    }).join("");
+    previewBody.innerHTML =
+      '<div class="preview-title">'+esc(title || "Untitled note set")+'</div>' +
+      '<div class="preview-meta">'+esc(unit)+'</div>' +
+      blocksHtml;
+  }
+
+  /* ---------------- structural mutations ---------------- */
+  function mutate(fn){
+    syncModelFromDom();
+    fn();
+    renderForm();
+  }
+
+  function wireStructuralButtons(){
+    blockList.querySelectorAll("[data-remove-block]").forEach(function(el){
+      el.addEventListener("click", function(){
+        var i = +el.getAttribute("data-remove-block");
+        mutate(function(){ model.blocks.splice(i,1); });
+      });
+    });
+    blockList.querySelectorAll("[data-add-row]").forEach(function(el){
+      el.addEventListener("click", function(){
+        var i = +el.getAttribute("data-add-row");
+        mutate(function(){ model.blocks[i].rows.push(model.blocks[i].headers.map(function(){ return ""; })); });
+      });
+    });
+    blockList.querySelectorAll("[data-remove-row]").forEach(function(el){
+      el.addEventListener("click", function(){
+        var parts = el.getAttribute("data-remove-row").split(":").map(Number);
+        mutate(function(){ model.blocks[parts[0]].rows.splice(parts[1],1); });
+      });
+    });
+    blockList.querySelectorAll("[data-add-col]").forEach(function(el){
+      el.addEventListener("click", function(){
+        var i = +el.getAttribute("data-add-col");
+        mutate(function(){
+          model.blocks[i].headers.push("");
+          model.blocks[i].rows.forEach(function(r){ r.push(""); });
+        });
+      });
+    });
+    blockList.querySelectorAll("[data-remove-col]").forEach(function(el){
+      el.addEventListener("click", function(){
+        var i = +el.getAttribute("data-remove-col");
+        mutate(function(){
+          if(model.blocks[i].headers.length <= 1) return;
+          model.blocks[i].headers.pop();
+          model.blocks[i].rows.forEach(function(r){ r.pop(); });
+        });
+      });
+    });
+    blockList.querySelectorAll("[data-toggle-line]").forEach(function(el){
+      el.addEventListener("change", function(){
+        var i = +el.getAttribute("data-toggle-line");
+        mutate(function(){ model.blocks[i].line = el.checked ? { m:1, b:0 } : null; });
+      });
+    });
+    blockList.querySelectorAll("[data-add-branch]").forEach(function(el){
+      el.addEventListener("click", function(){
+        var i = +el.getAttribute("data-add-branch");
+        mutate(function(){ model.blocks[i].branches.push({ html:"", leaves:[] }); });
+      });
+    });
+    blockList.querySelectorAll("[data-remove-branch]").forEach(function(el){
+      el.addEventListener("click", function(){
+        var parts = el.getAttribute("data-remove-branch").split(":").map(Number);
+        mutate(function(){ model.blocks[parts[0]].branches.splice(parts[1],1); });
+      });
+    });
+    blockList.querySelectorAll("[data-remove-leaf]").forEach(function(el){
+      el.addEventListener("click", function(){
+        var parts = el.getAttribute("data-remove-leaf").split(":");
+        var bi = +parts[0], bri = +parts[1], key = parts[2];
+        mutate(function(){
+          var leaves = model.blocks[bi].branches[bri].leaves;
+          var idx = leaves.indexOf(key);
+          if(idx > -1) leaves.splice(idx,1);
+        });
+      });
+    });
+    blockList.querySelectorAll("[data-add-leaf]").forEach(function(el){
+      el.addEventListener("click", function(){
+        var parts = el.getAttribute("data-add-leaf").split(":").map(Number);
+        openModal({ kind:"leaf", blockIndex:parts[0], branchIndex:parts[1] });
+      });
+    });
+
+    // live preview + focus tracking while typing (no DOM rebuild here)
+    blockList.querySelectorAll("input, textarea, select").forEach(function(el){
+      el.addEventListener("input", function(){
+        syncModelFromDom();
+        renderPreview();
+      });
+      if(el.hasAttribute("data-blankable")){
+        el.addEventListener("focus", function(){ lastFocusedEl = el; updateInsertHint(); });
+      }
+    });
+  }
+
+  function updateInsertHint(){
+    var hint = document.getElementById("insertHint");
+    if(lastFocusedEl){
+      hint.innerHTML = 'Ready to insert into the field you last clicked. Click <strong>Insert Blank</strong>.';
+    } else {
+      hint.innerHTML = 'Click into any text box below, then hit <strong>Insert Blank</strong> to drop one in at the cursor.';
+    }
+  }
+
+  /* ---------------- add block buttons ---------------- */
+  document.querySelectorAll("[data-add]").forEach(function(el){
+    el.addEventListener("click", function(){
+      var type = el.getAttribute("data-add");
+      mutate(function(){ model.blocks.push(newBlock(type)); });
+    });
+  });
+
+  /* ---------------- answer panel input sync ---------------- */
+  answerPanel.addEventListener("input", function(e){
+    if(e.target.matches("[data-path]")){
+      setPath(model, e.target.getAttribute("data-path"), e.target.value);
+    }
+  });
+
+  /* ---------------- meta fields ---------------- */
+  ["fTitle","fUnit","fDate"].forEach(function(id){
+    document.getElementById(id).addEventListener("input", function(){ syncModelFromDom(); renderPreview(); });
+  });
+
+  /* ---------------- modal ---------------- */
+  var overlay = document.getElementById("modalOverlay");
+  var modalLabel = document.getElementById("modalLabel");
+  var modalAnswer = document.getElementById("modalAnswer");
+  var modalLengthField = document.getElementById("modalLengthField");
+
+  function openModal(target){
+    modalTarget = target;
+    modalLabel.value = "";
+    modalAnswer.value = "";
+    document.querySelector('input[name="modalLength"][value="short"]').checked = true;
+    modalLengthField.style.display = target.kind === "leaf" ? "none" : "block";
+    document.getElementById("modalTitle").textContent = target.kind === "leaf" ? "Add a leaf box" : "Insert a blank";
+    overlay.classList.add("open");
+    setTimeout(function(){ modalLabel.focus(); }, 30);
+  }
+  function closeModal(){ overlay.classList.remove("open"); modalTarget = null; }
+
+  document.getElementById("insertBlankBtn").addEventListener("click", function(){
+    if(!lastFocusedEl){
+      alert("Click into a text box first (a paragraph, box, table cell, or diagram branch), then hit Insert Blank.");
+      return;
+    }
+    openModal({ kind:"splice", el:lastFocusedEl });
+  });
+  document.getElementById("modalCancel").addEventListener("click", closeModal);
+  overlay.addEventListener("click", function(e){ if(e.target === overlay) closeModal(); });
+
+  document.getElementById("modalSubmit").addEventListener("click", function(){
+    syncModelFromDom();
+    var key = uniqueKey(modalLabel.value);
+    var answer = modalAnswer.value;
+
+    if(modalTarget.kind === "leaf"){
+      model.blocks[modalTarget.blockIndex].branches[modalTarget.branchIndex].leaves.push(key);
+    } else {
+      var el = modalTarget.el;
+      var variant = document.querySelector('input[name="modalLength"]:checked').value;
+      var token = variant === "short" ? ("{{b:"+key+"}}") : ("{{b:"+key+"|"+variant+"}}");
+      var start = el.selectionStart != null ? el.selectionStart : el.value.length;
+      var end = el.selectionEnd != null ? el.selectionEnd : el.value.length;
+      var newVal = el.value.slice(0, start) + token + el.value.slice(end);
+      el.value = newVal;
+      // renderForm() below rebuilds from `model`, so the splice must land there too,
+      // not just on the live DOM element, or it gets discarded on re-render.
+      setPath(model, el.getAttribute("data-path"), newVal);
+    }
+    model.answers[key] = answer;
+    closeModal();
+    renderForm();
+  });
+
+  /* ---------------- code generation ---------------- */
+  function stringifyValue(val, indent){
+    var pad = "  ".repeat(indent), pad2 = "  ".repeat(indent+1);
+    if(Array.isArray(val)){
+      if(val.length === 0) return "[]";
+      return "[\n" + val.map(function(v){ return pad2 + stringifyValue(v, indent+1); }).join(",\n") + "\n" + pad + "]";
+    }
+    if(val && typeof val === "object"){
+      var keys = Object.keys(val);
+      if(keys.length === 0) return "{}";
+      return "{\n" + keys.map(function(k){ return pad2 + k + ": " + stringifyValue(val[k], indent+1); }).join(",\n") + "\n" + pad + "}";
+    }
+    if(typeof val === "string"){
+      return '"' + val.replace(/\\/g,"\\\\").replace(/"/g,'\\"').replace(/\n/g,"\\n") + '"';
+    }
+    return String(val);
+  }
+
+  document.getElementById("generateBtn").addEventListener("click", function(){
+    syncModelFromDom();
+    var idWarning = document.getElementById("idWarning");
+    idWarning.style.display = "none";
+
+    if(!model.title.trim()){
+      idWarning.textContent = "Add a title before generating code.";
+      idWarning.style.display = "block";
+      return;
+    }
+    if(model.blocks.length === 0){
+      idWarning.textContent = "Add at least one content block before generating code.";
+      idWarning.style.display = "block";
+      return;
+    }
+
+    var id = slugifyId(model.title);
+    var existingIds = (typeof NOTE_SETS !== "undefined") ? NOTE_SETS.map(function(n){ return n.id; }) : [];
+    if(existingIds.indexOf(id) > -1){
+      idWarning.textContent = 'Heads up — "'+id+'" already exists in data.js. Rename the title slightly, or manually adjust the id after pasting so it doesn\'t overwrite the existing note set.';
+      idWarning.style.display = "block";
+    }
+
+    var items = collectAllKeys();
+    var answerKeyObj = {};
+    items.forEach(function(it){
+      if(it.kind === "graph"){
+        answerKeyObj[it.key] = (model.answers[it.key] && typeof model.answers[it.key] === "object")
+          ? model.answers[it.key] : { points: [] };
+      } else {
+        answerKeyObj[it.key] = model.answers[it.key] || "";
+      }
+    });
+
+    var noteObj = {
+      id: id,
+      title: model.title,
+      unit: model.unit,
+      date: model.date,
+      content: model.blocks,
+      answerKey: answerKeyObj
+    };
+
+    var code = "  " + stringifyValue(noteObj, 1) + ",\n";
+    var out = document.getElementById("codeOutput");
+    out.value = code;
+    out.style.display = "block";
+    document.getElementById("copyBtn").style.display = "inline-flex";
+  });
+
+  document.getElementById("copyBtn").addEventListener("click", function(){
+    var out = document.getElementById("codeOutput");
+    out.select();
+    navigator.clipboard && navigator.clipboard.writeText(out.value).catch(function(){ document.execCommand("copy"); });
+    var flash = document.getElementById("copyFlash");
+    flash.classList.add("show");
+    setTimeout(function(){ flash.classList.remove("show"); }, 1400);
+  });
+
+  /* expose internals for testing */
+  window.__builderInternals = {
+    model: model, slugify: slugify, slugifyId: slugifyId, uniqueKey: uniqueKey,
+    collectAllKeys: collectAllKeys, stringifyValue: stringifyValue, getPath: getPath, setPath: setPath
+  };
+
+  // instructor-only — students who guess this URL get bounced to home.html
+  GuidedAuth.requireAuth(["instructor"]).then(function(profile){
+    if(!profile) return;
+    GuidedAuth.renderAccountBadge(document.getElementById("accountBadge"), profile);
+    renderForm();
+  });
+})();
+</script>
+</body>
+</html>
