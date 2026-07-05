@@ -41,6 +41,12 @@
    5. "allowUpload: true" adds a file-attach field to the results screen, for
       turning in handwritten work alongside the quiz.
 
+   MATH NOTATION
+   --------------------------------------------------------------------------
+   Any question's "prompt" can include LaTeX math — wrap it in single dollar
+   signs inline ("Solve for x: $2x + 3 = 7$") or double dollar signs for a
+   larger, centered equation. Same syntax as data.js.
+
    ANSWER KEYS
    --------------------------------------------------------------------------
    Add an "answerKey" object next to "questions":
