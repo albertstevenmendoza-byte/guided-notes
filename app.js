@@ -1,7 +1,7 @@
 /* =========================================================================
    GUIDED NOTES — APP ENGINE
    =========================================================================
-   Shared by index.html (student view) and instructor.html (answer key view).
+   Shared by notes.html (student view) and instructor.html (answer key view).
    You should not need to edit this file to add or change lecture content —
    that all lives in data.js. This file only needs edits if you're changing
    how the app behaves.
@@ -319,6 +319,18 @@
     });
   }
 
+  function renderMath(container){
+    if(typeof renderMathInElement === "function"){
+      renderMathInElement(container, {
+        delimiters: [
+          { left: "$$", right: "$$", display: true },
+          { left: "$", right: "$", display: false }
+        ],
+        throwOnError: false
+      });
+    }
+  }
+
   /* ---------------- routing ---------------- */
   function getRoute(){
     var hash = location.hash || "";
@@ -434,6 +446,7 @@
       '</div>';
 
     document.getElementById("printBtn").addEventListener("click", function(){ window.print(); });
+    renderMath(app);
 
     if(APP_MODE === "student"){
       app.querySelectorAll(".blank, .blank-area").forEach(function(el){
@@ -509,7 +522,8 @@
     escapeHtml: escapeHtml,
     eachBlankKey: eachBlankKey,
     wireGraphClicks: wireGraphClicks,
-    numOr: numOr
+    numOr: numOr,
+    renderMath: renderMath
   };
 
 })(window);
