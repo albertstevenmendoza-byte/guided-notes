@@ -4,7 +4,7 @@
    This is the ONLY file instructors need to edit to add a new lecture's
    guided notes. Don't edit app.js or styles.css unless you're changing how
    the app works, not what it says. Whatever you add here shows up
-   automatically on both index.html (students) and instructor.html
+   automatically on both notes.html (students) and instructor.html
    (answer key) — you never write content twice.
 
    HOW TO ADD A NEW NOTE SET
@@ -69,6 +69,22 @@
                           words" style prompts)
      "key" only needs to be unique WITHIN one note set, not across all of
      them. Use short, descriptive keys, e.g. "slope", "row1", "explain".
+
+   MATH NOTATION
+   --------------------------------------------------------------------------
+   Wrap any LaTeX math in single dollar signs for inline notation, or double
+   dollar signs for a larger, centered equation. Works anywhere text does —
+   paragraphs, boxes, table cells, diagram text.
+
+     Inline:  "The formula is $y = mx + b$."
+     Block:   "$$\\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}$$"
+
+   This uses the same LaTeX syntax as most online equation editors — search
+   "KaTeX supported functions" if you need the full symbol list.
+
+   Writing about actual money in the same block as math? A lone "$" can get
+   mistaken for the start of a math expression. Escape it as "\$" (e.g.
+   "This costs \$5") to force it to display as a plain dollar sign.
 
    ANSWER KEYS (for the instructor page)
    --------------------------------------------------------------------------
