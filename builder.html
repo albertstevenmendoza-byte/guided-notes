@@ -8,6 +8,9 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
 <style>
   body.is-builder{ background:var(--paper); }
   .builder-topbar-inner{ max-width:1180px; }
@@ -134,9 +137,33 @@
 <div class="builder-shell">
   <div>
 
+    <div class="panel" id="draftBanner" style="display:none;background:var(--slate-soft);border-color:var(--slate);">
+      <p style="margin:0 0 10px;font-size:0.9rem;color:var(--slate);" id="draftBannerText"></p>
+      <div style="display:flex;gap:8px;">
+        <button class="small-btn" id="discardDraftBtn">Discard, start blank</button>
+      </div>
+    </div>
+
     <div class="panel">
-      <h2>New note set</h2>
-      <div class="meta-grid">
+      <h2>Load an existing note set</h2>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <select id="loadExistingSelect" style="flex:1;min-width:200px;font-family:var(--font-body);font-size:0.9rem;padding:8px 10px;border:1px solid var(--rule);border-radius:7px;background:var(--paper);">
+          <option value="">— choose a note set to load —</option>
+        </select>
+        <button class="small-btn" id="loadToEditBtn">Load to edit</button>
+        <button class="small-btn" id="loadAsCopyBtn">Load as a copy</button>
+      </div>
+      <p style="font-size:0.8rem;color:var(--ink-faint);margin:8px 0 0;">
+        "Load to edit" replaces that exact note set when you generate code. "Load as a copy" starts a new one with the same content, so you can use it as a template.
+      </p>
+    </div>
+
+    <div class="panel">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <h2 id="metaPanelTitle" style="margin:0;">New note set</h2>
+        <button class="small-btn" id="newNoteSetBtn" style="display:none;">+ New (clear this one)</button>
+      </div>
+      <div class="meta-grid" style="margin-top:14px;">
         <div class="field"><label for="fTitle">Title</label><input type="text" id="fTitle" placeholder="e.g. Frequency Tables"></div>
         <div class="field"><label for="fUnit">Unit</label><input type="text" id="fUnit" placeholder="e.g. Unit 1"></div>
         <div class="field"><label for="fDate">Date</label><input type="date" id="fDate"></div>
@@ -146,6 +173,7 @@
     <div class="insert-bar">
       <span class="hint" id="insertHint">Click into any text box below, then hit <strong>Insert Blank</strong> to drop one in at the cursor.</span>
       <button class="small-btn accent" id="insertBlankBtn">+ Insert Blank</button>
+      <button class="small-btn" id="insertMathBtn" title="Wrap selected text in math notation, or insert a blank equation at the cursor">Σ Insert Math</button>
     </div>
 
     <div class="panel">
@@ -225,11 +253,32 @@
 (function(){
   "use strict";
 
+  var DRAFT_KEY = "guidedNotesBuilderDraft_v1";
   var model = {
+    editingId: null, // set when editing an existing note set instead of building a new one
     title: "", unit: "", date: "",
     blocks: [],
     answers: {}
   };
+
+  var draftSaveTimer = null;
+  function queueSaveDraft(){
+    if(draftSaveTimer) clearTimeout(draftSaveTimer);
+    draftSaveTimer = setTimeout(function(){
+      try{
+        localStorage.setItem(DRAFT_KEY, JSON.stringify({ savedAt: new Date().toISOString(), model: model }));
+      }catch(e){ console.warn("Couldn't save draft:", e); }
+    }, 400);
+  }
+  function loadDraft(){
+    try{
+      var raw = localStorage.getItem(DRAFT_KEY);
+      return raw ? JSON.parse(raw) : null;
+    }catch(e){ return null; }
+  }
+  function clearDraft(){
+    try{ localStorage.removeItem(DRAFT_KEY); }catch(e){}
+  }
 
   var lastFocusedEl = null;
   var modalTarget = null; // { kind:"splice", el } or { kind:"leaf", blockIndex, branchIndex }
@@ -317,6 +366,36 @@
     var k = slugify(base), candidate = k, i = 2;
     while(existing[candidate]){ candidate = k + "_" + i; i++; }
     return candidate;
+  }
+
+  // Gives every blank/graph key inside a duplicated block a fresh unique
+  // key, so the copy doesn't silently share answers with the original.
+  function rekeyBlock(block){
+    var keyMap = {};
+    function remapKey(oldKey){
+      if(!keyMap[oldKey]) keyMap[oldKey] = uniqueKey(oldKey);
+      return keyMap[oldKey];
+    }
+    function remapText(str){
+      var re = new RegExp(BLANK_SRC, "g");
+      return String(str||"").replace(re, function(full, key, variant){
+        var newKey = remapKey(key);
+        return variant ? ("{{b:"+newKey+"|"+variant+"}}") : ("{{b:"+newKey+"}}");
+      });
+    }
+    if(block.html) block.html = remapText(block.html);
+    if(block.type === "table"){
+      block.rows = (block.rows||[]).map(function(row){ return row.map(function(c){ return remapText(String(c)); }); });
+    }
+    if(block.type === "diagram"){
+      (block.branches||[]).forEach(function(br){
+        br.html = remapText(br.html);
+        br.leaves = (br.leaves||[]).map(function(k){ return remapKey(k); });
+      });
+    }
+    if(block.type === "graph"){
+      block.key = remapKey(block.key);
+    }
   }
 
   /* ---------------- block factories ---------------- */
@@ -439,7 +518,12 @@
 
     return '<div class="block-card" data-type="'+block.type+'">' +
       '<div class="block-card-head"><span class="block-type-label">'+label+'</span>' +
-        '<button class="icon-btn" data-remove-block="'+bi+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>Remove block</button>' +
+        '<span style="display:flex;gap:4px;">' +
+        '<button class="icon-btn" data-move-up="'+bi+'" title="Move up" style="color:var(--ink-soft);"'+(bi===0?' disabled style="opacity:0.3;"':'')+'>&uarr;</button>' +
+        '<button class="icon-btn" data-move-down="'+bi+'" title="Move down" style="color:var(--ink-soft);">&darr;</button>' +
+        '<button class="icon-btn" data-duplicate-block="'+bi+'" title="Duplicate" style="color:var(--slate);">⧉ Duplicate</button>' +
+        '<button class="icon-btn" data-remove-block="'+bi+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>Remove</button>' +
+        '</span>' +
       '</div>' + inner + '</div>';
   }
 
@@ -516,6 +600,7 @@
       '<div class="preview-title">'+esc(title || "Untitled note set")+'</div>' +
       '<div class="preview-meta">'+esc(unit)+'</div>' +
       blocksHtml;
+    GuidedNotesApp.renderMath(previewBody);
   }
 
   /* ---------------- structural mutations ---------------- */
@@ -523,13 +608,49 @@
     syncModelFromDom();
     fn();
     renderForm();
+    queueSaveDraft();
   }
 
   function wireStructuralButtons(){
     blockList.querySelectorAll("[data-remove-block]").forEach(function(el){
       el.addEventListener("click", function(){
         var i = +el.getAttribute("data-remove-block");
+        if(!confirm("Remove this block?")) return;
         mutate(function(){ model.blocks.splice(i,1); });
+      });
+    });
+    blockList.querySelectorAll("[data-move-up]").forEach(function(el){
+      el.addEventListener("click", function(){
+        var i = +el.getAttribute("data-move-up");
+        if(i === 0) return;
+        mutate(function(){
+          var tmp = model.blocks[i-1];
+          model.blocks[i-1] = model.blocks[i];
+          model.blocks[i] = tmp;
+        });
+      });
+    });
+    blockList.querySelectorAll("[data-move-down]").forEach(function(el){
+      el.addEventListener("click", function(){
+        var i = +el.getAttribute("data-move-down");
+        if(i >= model.blocks.length - 1) return;
+        mutate(function(){
+          var tmp = model.blocks[i+1];
+          model.blocks[i+1] = model.blocks[i];
+          model.blocks[i] = tmp;
+        });
+      });
+    });
+    blockList.querySelectorAll("[data-duplicate-block]").forEach(function(el){
+      el.addEventListener("click", function(){
+        var i = +el.getAttribute("data-duplicate-block");
+        mutate(function(){
+          var copy = deepClone(model.blocks[i]);
+          // duplicated blanks/graph keys must get fresh unique keys, or the
+          // copy would silently share answers with the original
+          rekeyBlock(copy);
+          model.blocks.splice(i+1, 0, copy);
+        });
       });
     });
     blockList.querySelectorAll("[data-add-row]").forEach(function(el){
@@ -604,6 +725,7 @@
       el.addEventListener("input", function(){
         syncModelFromDom();
         renderPreview();
+        queueSaveDraft();
       });
       if(el.hasAttribute("data-blankable")){
         el.addEventListener("focus", function(){ lastFocusedEl = el; updateInsertHint(); });
@@ -632,12 +754,13 @@
   answerPanel.addEventListener("input", function(e){
     if(e.target.matches("[data-path]")){
       setPath(model, e.target.getAttribute("data-path"), e.target.value);
+      queueSaveDraft();
     }
   });
 
   /* ---------------- meta fields ---------------- */
   ["fTitle","fUnit","fDate"].forEach(function(id){
-    document.getElementById(id).addEventListener("input", function(){ syncModelFromDom(); renderPreview(); });
+    document.getElementById(id).addEventListener("input", function(){ syncModelFromDom(); renderPreview(); queueSaveDraft(); });
   });
 
   /* ---------------- modal ---------------- */
@@ -665,6 +788,31 @@
     }
     openModal({ kind:"splice", el:lastFocusedEl });
   });
+
+  document.getElementById("insertMathBtn").addEventListener("click", function(){
+    if(!lastFocusedEl){
+      alert("Click into a text box first, then hit Insert Math.");
+      return;
+    }
+    var el = lastFocusedEl;
+    var start = el.selectionStart != null ? el.selectionStart : el.value.length;
+    var end = el.selectionEnd != null ? el.selectionEnd : el.value.length;
+    var hasSelection = end > start;
+    var selected = hasSelection ? el.value.slice(start, end) : "";
+    var inner = hasSelection ? selected : "x^2";
+    var token = "$" + inner + "$";
+    var newVal = el.value.slice(0, start) + token + el.value.slice(end);
+    el.value = newVal;
+    setPath(model, el.getAttribute("data-path"), newVal);
+    // place the cursor around the inserted expression so it's easy to edit
+    var caretStart = start + 1;
+    var caretEnd = caretStart + inner.length;
+    el.focus();
+    el.setSelectionRange(caretStart, caretEnd);
+    renderPreview();
+    queueSaveDraft();
+  });
+
   document.getElementById("modalCancel").addEventListener("click", closeModal);
   overlay.addEventListener("click", function(e){ if(e.target === overlay) closeModal(); });
 
@@ -726,9 +874,12 @@
       return;
     }
 
-    var id = slugifyId(model.title);
+    var id = model.editingId || slugifyId(model.title);
     var existingIds = (typeof NOTE_SETS !== "undefined") ? NOTE_SETS.map(function(n){ return n.id; }) : [];
-    if(existingIds.indexOf(id) > -1){
+    if(model.editingId){
+      idWarning.textContent = 'This replaces the existing note set — in data.js, find the object with id: "'+id+'" and replace that whole object with the code below (don\'t just paste this in as a new entry, or you\'ll end up with two).';
+      idWarning.style.display = "block";
+    } else if(existingIds.indexOf(id) > -1){
       idWarning.textContent = 'Heads up — "'+id+'" already exists in data.js. Rename the title slightly, or manually adjust the id after pasting so it doesn\'t overwrite the existing note set.';
       idWarning.style.display = "block";
     }
@@ -769,16 +920,103 @@
     setTimeout(function(){ flash.classList.remove("show"); }, 1400);
   });
 
+  /* ---------------- load existing / duplicate / reset ---------------- */
+  function deepClone(obj){ return JSON.parse(JSON.stringify(obj)); }
+
+  function resetModel(){
+    model.editingId = null;
+    model.title = ""; model.unit = ""; model.date = "";
+    model.blocks = [];
+    model.answers = {};
+    document.getElementById("fTitle").value = "";
+    document.getElementById("fUnit").value = "";
+    document.getElementById("fDate").value = "";
+    document.getElementById("metaPanelTitle").textContent = "New note set";
+    document.getElementById("newNoteSetBtn").style.display = "none";
+    document.getElementById("codeOutput").style.display = "none";
+    document.getElementById("copyBtn").style.display = "none";
+    document.getElementById("idWarning").style.display = "none";
+    clearDraft();
+    renderForm();
+  }
+
+  function populateLoadExistingSelect(){
+    var sel = document.getElementById("loadExistingSelect");
+    if(typeof NOTE_SETS === "undefined") return;
+    NOTE_SETS.slice().sort(function(a,b){ return (a.title||"").localeCompare(b.title||""); }).forEach(function(ns){
+      var opt = document.createElement("option");
+      opt.value = ns.id; opt.textContent = ns.title + (ns.unit ? " (" + ns.unit + ")" : "");
+      sel.appendChild(opt);
+    });
+  }
+
+  function loadNoteSet(asCopy){
+    var sel = document.getElementById("loadExistingSelect");
+    var id = sel.value;
+    if(!id) return;
+    var found = NOTE_SETS.filter(function(n){ return n.id === id; })[0];
+    if(!found) return;
+
+    model.editingId = asCopy ? null : found.id;
+    model.title = asCopy ? found.title + " (copy)" : found.title;
+    model.unit = found.unit || "";
+    model.date = found.date || "";
+    model.blocks = deepClone(found.content || []);
+    model.answers = deepClone(found.answerKey || {});
+
+    document.getElementById("fTitle").value = model.title;
+    document.getElementById("fUnit").value = model.unit;
+    document.getElementById("fDate").value = model.date;
+    document.getElementById("metaPanelTitle").textContent = asCopy ? "New copy of \"" + found.title + "\"" : "Editing: " + found.title;
+    document.getElementById("newNoteSetBtn").style.display = "inline-flex";
+    document.getElementById("codeOutput").style.display = "none";
+    document.getElementById("copyBtn").style.display = "none";
+    document.getElementById("idWarning").style.display = "none";
+
+    renderForm();
+    queueSaveDraft();
+  }
+
+  document.getElementById("loadToEditBtn").addEventListener("click", function(){ loadNoteSet(false); });
+  document.getElementById("loadAsCopyBtn").addEventListener("click", function(){ loadNoteSet(true); });
+  document.getElementById("newNoteSetBtn").addEventListener("click", function(){
+    if(model.blocks.length && !confirm("Clear the current note set and start a new one?")) return;
+    resetModel();
+  });
+  document.getElementById("discardDraftBtn").addEventListener("click", function(){
+    document.getElementById("draftBanner").style.display = "none";
+    resetModel();
+  });
+
+  populateLoadExistingSelect();
+
   /* expose internals for testing */
   window.__builderInternals = {
     model: model, slugify: slugify, slugifyId: slugifyId, uniqueKey: uniqueKey,
-    collectAllKeys: collectAllKeys, stringifyValue: stringifyValue, getPath: getPath, setPath: setPath
+    collectAllKeys: collectAllKeys, stringifyValue: stringifyValue, getPath: getPath, setPath: setPath,
+    resetModel: resetModel, loadNoteSet: loadNoteSet
   };
 
   // instructor-only — students who guess this URL get bounced to home.html
   GuidedAuth.requireAuth(["instructor"]).then(function(profile){
     if(!profile) return;
     GuidedAuth.renderAccountBadge(document.getElementById("accountBadge"), profile);
+
+    var draft = loadDraft();
+    if(draft && draft.model && (draft.model.title || (draft.model.blocks && draft.model.blocks.length))){
+      Object.assign(model, draft.model);
+      document.getElementById("fTitle").value = model.title || "";
+      document.getElementById("fUnit").value = model.unit || "";
+      document.getElementById("fDate").value = model.date || "";
+      if(model.editingId){
+        document.getElementById("metaPanelTitle").textContent = "Editing: " + model.title;
+        document.getElementById("newNoteSetBtn").style.display = "inline-flex";
+      }
+      var when = new Date(draft.savedAt).toLocaleString(undefined, { month:"short", day:"numeric", hour:"numeric", minute:"2-digit" });
+      document.getElementById("draftBannerText").textContent = "Restored your unsaved draft from " + when + " — \"" + (model.title || "untitled") + "\".";
+      document.getElementById("draftBanner").style.display = "block";
+    }
+
     renderForm();
   });
 })();
