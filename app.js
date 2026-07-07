@@ -197,6 +197,13 @@
           (br.leaves || []).forEach(function(k){ fn(k); });
         });
       }
+      if(block.type === "list"){
+        (block.items||[]).forEach(function(item){ scan(String(item)); });
+      }
+      if(block.type === "quote"){
+        if(block.text) scan(block.text);
+        if(block.attribution) scan(block.attribution);
+      }
     });
   }
 
@@ -247,11 +254,15 @@
     }
     if(block.type === "box"){
       var tone = block.tone || "key";
-      var labels = { key:"Key Idea", example:"Example", tip:"Tip", question:"Think About It" };
+      var labels = {
+        key:"Key Idea", example:"Example", tip:"Tip", question:"Think About It",
+        definition:"Definition", theorem:"Theorem", proof:"Proof", mistake:"Common Mistake"
+      };
       var label = block.label || labels[tone] || "Note";
+      var qed = tone === "proof" ? '<span class="qed-mark">∎</span>' : "";
       return '<div class="content-block"><div class="box tone-'+tone+'">' +
         '<span class="box-label">'+escapeHtml(label)+'</span>' +
-        '<p>'+renderBlanks(block.html, noteId, mode, answers, answerKey)+'</p>' +
+        '<p>'+renderBlanks(block.html, noteId, mode, answers, answerKey)+qed+'</p>' +
       '</div></div>';
     }
     if(block.type === "table"){
@@ -264,6 +275,17 @@
     }
     if(block.type === "graph"){
       return renderGraph(block, noteId, mode, answers, answerKey);
+    }
+    if(block.type === "list"){
+      var tag = block.ordered ? "ol" : "ul";
+      var items = (block.items||[]).map(function(item){
+        return '<li>'+renderBlanks(String(item), noteId, mode, answers, answerKey)+'</li>';
+      }).join("");
+      return '<div class="content-block"><'+tag+' class="note-list">'+items+'</'+tag+'></div>';
+    }
+    if(block.type === "quote"){
+      var citeHtml = block.attribution ? '<cite>'+renderBlanks(block.attribution, noteId, mode, answers, answerKey)+'</cite>' : "";
+      return '<div class="content-block"><blockquote class="note-quote"><p>'+renderBlanks(block.text||"", noteId, mode, answers, answerKey)+'</p>'+citeHtml+'</blockquote></div>';
     }
     if(block.type === "diagram"){
       var branchesHtml = block.branches.map(function(br){
@@ -480,11 +502,15 @@
       });
       var clearBtn = document.getElementById("clearBtn");
       if(clearBtn){
-        clearBtn.addEventListener("click", function(){
-          if(confirm("Clear all your answers for \""+noteSet.title+"\"? This can't be undone.")){
+        clearBtn.addEventListener("click", async function(){
+          var ok = typeof UI !== "undefined"
+            ? await UI.confirm("Clear all your answers for \""+noteSet.title+"\"? This can't be undone.", { danger:true, confirmText:"Clear answers" })
+            : confirm("Clear all your answers for \""+noteSet.title+"\"? This can't be undone.");
+          if(ok){
             store[id] = {};
             saveStore();
             renderNote(app, id);
+            if(typeof UI !== "undefined") UI.toast("Answers cleared.", "success");
           }
         });
       }
