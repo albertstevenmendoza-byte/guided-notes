@@ -56,6 +56,8 @@
   .block-card[data-type="table"]{ border-left-color:var(--pine); }
   .block-card[data-type="diagram"]{ border-left-color:var(--plum); }
   .block-card[data-type="graph"]{ border-left-color:var(--warn); }
+  .block-card[data-type="list"]{ border-left-color:var(--navy); }
+  .block-card[data-type="quote"]{ border-left-color:var(--ink-soft); }
 
   .block-card-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
   .block-type-label{ font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:0.07em; color:var(--ink-soft); }
@@ -122,6 +124,7 @@
 </style>
 </head>
 <body class="is-builder">
+<a href="#builderMain" class="skip-link">Skip to main content</a>
 
 <div class="topbar">
   <div class="topbar-inner builder-topbar-inner">
@@ -134,7 +137,7 @@
   </div>
 </div>
 
-<div class="builder-shell">
+<div class="builder-shell" id="builderMain">
   <div>
 
     <div class="panel" id="draftBanner" style="display:none;background:var(--slate-soft);border-color:var(--slate);">
@@ -174,6 +177,13 @@
       <span class="hint" id="insertHint">Click into any text box below, then hit <strong>Insert Blank</strong> to drop one in at the cursor.</span>
       <button class="small-btn accent" id="insertBlankBtn">+ Insert Blank</button>
       <button class="small-btn" id="insertMathBtn" title="Wrap selected text in math notation, or insert a blank equation at the cursor">Σ Insert Math</button>
+      <span style="width:1px;background:var(--rule);align-self:stretch;"></span>
+      <button class="small-btn" id="boldBtn" title="Bold"><strong>B</strong></button>
+      <button class="small-btn" id="italicBtn" title="Italic"><em>I</em></button>
+      <button class="small-btn" id="underlineBtn" title="Underline"><u>U</u></button>
+      <button class="small-btn" id="bulletListBtn" title="Bullet list">• List</button>
+      <button class="small-btn" id="numberedListBtn" title="Numbered list">1. List</button>
+      <button class="small-btn" id="linkBtn" title="Link">🔗 Link</button>
     </div>
 
     <div class="panel">
@@ -186,6 +196,8 @@
         <button class="small-btn" data-add="table">+ Table</button>
         <button class="small-btn accent2" data-add="diagram">+ Diagram</button>
         <button class="small-btn" data-add="graph" style="border-color:var(--warn);color:var(--warn);">+ Graph</button>
+        <button class="small-btn" data-add="list" style="border-color:var(--navy);color:var(--navy);">+ List</button>
+        <button class="small-btn" data-add="quote" style="border-color:var(--ink-soft);color:var(--ink-soft);">+ Quote</button>
       </div>
     </div>
 
@@ -246,6 +258,7 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="ui.js"></script>
 <script src="auth.js"></script>
 <script src="data.js"></script>
 <script src="app.js"></script>
@@ -356,6 +369,13 @@
           (br.leaves||[]).forEach(function(k){ if(!seen[k]){ seen[k]=true; items.push({ key:k, kind:"text" }); } });
         });
       }
+      if(b.type === "list"){
+        (b.items||[]).forEach(function(item){ scan(String(item)); });
+      }
+      if(b.type === "quote"){
+        if(b.text) scan(b.text);
+        if(b.attribution) scan(b.attribution);
+      }
     });
     return items;
   }
@@ -396,6 +416,13 @@
     if(block.type === "graph"){
       block.key = remapKey(block.key);
     }
+    if(block.type === "list"){
+      block.items = (block.items||[]).map(function(item){ return remapText(String(item)); });
+    }
+    if(block.type === "quote"){
+      if(block.text) block.text = remapText(block.text);
+      if(block.attribution) block.attribution = remapText(block.attribution);
+    }
   }
 
   /* ---------------- block factories ---------------- */
@@ -409,6 +436,8 @@
       type:"graph", key: uniqueKey("graph"), instructions:"",
       xMin:-10, xMax:10, yMin:-10, yMax:10, xStep:1, yStep:1, line:null
     };
+    if(type === "list") return { type:"list", ordered:false, items:[""] };
+    if(type === "quote") return { type:"quote", text:"", attribution:"" };
   }
 
   /* ---------------- render: block list ---------------- */
@@ -425,7 +454,7 @@
   }
 
   function renderBlockCard(block, bi){
-    var label = { heading:"Heading", paragraph:"Paragraph", box:"Box", table:"Table", diagram:"Diagram", graph:"Graph" }[block.type];
+    var label = { heading:"Heading", paragraph:"Paragraph", box:"Box", table:"Table", diagram:"Diagram", graph:"Graph", list:"List", quote:"Quote" }[block.type];
     var inner = "";
 
     if(block.type === "heading"){
@@ -440,12 +469,15 @@
       inner =
         '<div class="field-row">' +
           '<div class="field"><label>Tone</label><select data-path="blocks.'+bi+'.tone">' +
-            ["key","example","tip","question"].map(function(t){
-              var names = { key:"Key Idea (teal)", example:"Example (gold)", tip:"Tip (blue)", question:"Think About It (plum)" };
+            ["key","example","tip","question","definition","theorem","proof","mistake"].map(function(t){
+              var names = {
+                key:"Key Idea (teal)", example:"Example (gold)", tip:"Tip (blue)", question:"Think About It (plum)",
+                definition:"Definition (navy)", theorem:"Theorem (rose)", proof:"Proof (rose, dashed)", mistake:"Common Mistake (red)"
+              };
               return '<option value="'+t+'"'+(block.tone===t?" selected":"")+'>'+names[t]+'</option>';
             }).join("") +
           '</select></div>' +
-          '<div class="field"><label>Label (optional override)</label><input type="text" data-path="blocks.'+bi+'.label" value="'+esc(block.label)+'" placeholder="Leave blank to use the tone default"></div>' +
+          '<div class="field"><label>Label (optional override)</label><input type="text" data-path="blocks.'+bi+'.label" value="'+esc(block.label)+'" placeholder="e.g. type Lemma or Corollary to relabel a Theorem box"></div>' +
           '<div class="field"><label>Text</label><textarea class="field-blankable" data-path="blocks.'+bi+'.html" data-blankable="1" rows="3">'+esc(block.html)+'</textarea></div>' +
         '</div>';
     }
@@ -516,6 +548,25 @@
         '<div class="field" style="margin-top:10px;"><label>Answer key name</label><input type="text" data-path="blocks.'+bi+'.key" value="'+esc(block.key)+'" placeholder="unique-key"></div>';
     }
 
+    if(block.type === "list"){
+      var itemRows = (block.items||[]).map(function(item, ii){
+        return '<div class="table-grid-row">' +
+          '<input type="text" class="field-blankable" data-blankable="1" data-path="blocks.'+bi+'.items.'+ii+'" value="'+esc(item)+'" placeholder="List item…">' +
+          '<button class="row-remove" data-remove-list-item="'+bi+':'+ii+'" style="visibility:'+((block.items||[]).length>1?'visible':'hidden')+'">✕</button>' +
+        '</div>';
+      }).join("");
+      inner =
+        '<div class="field"><label><input type="checkbox" data-toggle-ordered="'+bi+'" '+(block.ordered?"checked":"")+' style="width:auto;margin-right:6px;">Numbered list (unchecked = bullets)</label></div>' +
+        '<div class="table-grid" style="margin-top:10px;">'+itemRows+'</div>' +
+        '<div class="table-controls"><button class="small-btn" data-add-list-item="'+bi+'">+ Item</button></div>';
+    }
+
+    if(block.type === "quote"){
+      inner =
+        '<div class="field"><label>Quote text</label><textarea class="field-blankable" data-blankable="1" data-path="blocks.'+bi+'.text" rows="2" placeholder="The quoted text…">'+esc(block.text)+'</textarea></div>' +
+        '<div class="field"><label>Attribution (optional)</label><input type="text" data-path="blocks.'+bi+'.attribution" value="'+esc(block.attribution)+'" placeholder="e.g. Euclid"></div>';
+    }
+
     return '<div class="block-card" data-type="'+block.type+'">' +
       '<div class="block-card-head"><span class="block-type-label">'+label+'</span>' +
         '<span style="display:flex;gap:4px;">' +
@@ -566,7 +617,7 @@
         var row = el.closest(".answer-panel-row");
         var x = numOr(row.querySelector(".graph-answer-x").value, null);
         var y = numOr(row.querySelector(".graph-answer-y").value, null);
-        if(x === null || y === null){ alert("Enter both x and y before adding a point."); return; }
+        if(x === null || y === null){ UI.toast("Enter both x and y before adding a point.", "warn"); return; }
         mutate(function(){
           if(!model.answers[key] || typeof model.answers[key] !== "object") model.answers[key] = { points: [] };
           model.answers[key].points.push({ x:x, y:y });
@@ -613,9 +664,10 @@
 
   function wireStructuralButtons(){
     blockList.querySelectorAll("[data-remove-block]").forEach(function(el){
-      el.addEventListener("click", function(){
+      el.addEventListener("click", async function(){
         var i = +el.getAttribute("data-remove-block");
-        if(!confirm("Remove this block?")) return;
+        var ok = await UI.confirm("Remove this block?", { danger:true, confirmText:"Remove" });
+        if(!ok) return;
         mutate(function(){ model.blocks.splice(i,1); });
       });
     });
@@ -688,6 +740,27 @@
       el.addEventListener("change", function(){
         var i = +el.getAttribute("data-toggle-line");
         mutate(function(){ model.blocks[i].line = el.checked ? { m:1, b:0 } : null; });
+      });
+    });
+    blockList.querySelectorAll("[data-toggle-ordered]").forEach(function(el){
+      el.addEventListener("change", function(){
+        var i = +el.getAttribute("data-toggle-ordered");
+        mutate(function(){ model.blocks[i].ordered = el.checked; });
+      });
+    });
+    blockList.querySelectorAll("[data-add-list-item]").forEach(function(el){
+      el.addEventListener("click", function(){
+        var i = +el.getAttribute("data-add-list-item");
+        mutate(function(){ model.blocks[i].items.push(""); });
+      });
+    });
+    blockList.querySelectorAll("[data-remove-list-item]").forEach(function(el){
+      el.addEventListener("click", function(){
+        var parts = el.getAttribute("data-remove-list-item").split(":").map(Number);
+        mutate(function(){
+          if(model.blocks[parts[0]].items.length <= 1) return;
+          model.blocks[parts[0]].items.splice(parts[1], 1);
+        });
       });
     });
     blockList.querySelectorAll("[data-add-branch]").forEach(function(el){
@@ -783,7 +856,7 @@
 
   document.getElementById("insertBlankBtn").addEventListener("click", function(){
     if(!lastFocusedEl){
-      alert("Click into a text box first (a paragraph, box, table cell, or diagram branch), then hit Insert Blank.");
+      UI.toast("Click into a text box first, then hit Insert Blank.", "warn");
       return;
     }
     openModal({ kind:"splice", el:lastFocusedEl });
@@ -791,7 +864,7 @@
 
   document.getElementById("insertMathBtn").addEventListener("click", function(){
     if(!lastFocusedEl){
-      alert("Click into a text box first, then hit Insert Math.");
+      UI.toast("Click into a text box first, then hit Insert Math.", "warn");
       return;
     }
     var el = lastFocusedEl;
@@ -815,6 +888,80 @@
 
   document.getElementById("modalCancel").addEventListener("click", closeModal);
   overlay.addEventListener("click", function(e){ if(e.target === overlay) closeModal(); });
+
+  /* ---------------- rich text formatting toolbar ---------------- */
+  function wrapRangeWith(el, start, end, before, after, placeholder){
+    var hasSelection = end > start;
+    var inner = hasSelection ? el.value.slice(start, end) : placeholder;
+    var token = before + inner + after;
+    var newVal = el.value.slice(0, start) + token + el.value.slice(end);
+    el.value = newVal;
+    setPath(model, el.getAttribute("data-path"), newVal);
+    var caretStart = start + before.length;
+    var caretEnd = caretStart + inner.length;
+    el.focus();
+    el.setSelectionRange(caretStart, caretEnd);
+    renderPreview();
+    queueSaveDraft();
+  }
+  function wrapSelectionWith(el, before, after, placeholder){
+    var start = el.selectionStart != null ? el.selectionStart : el.value.length;
+    var end = el.selectionEnd != null ? el.selectionEnd : el.value.length;
+    wrapRangeWith(el, start, end, before, after, placeholder);
+  }
+  function requireFocusedField(){
+    if(!lastFocusedEl){
+      UI.toast("Click into a text box first.", "warn");
+      return null;
+    }
+    return lastFocusedEl;
+  }
+
+  document.getElementById("boldBtn").addEventListener("click", function(){
+    var el = requireFocusedField(); if(!el) return;
+    wrapSelectionWith(el, "<strong>", "</strong>", "bold text");
+  });
+  document.getElementById("italicBtn").addEventListener("click", function(){
+    var el = requireFocusedField(); if(!el) return;
+    wrapSelectionWith(el, "<em>", "</em>", "italic text");
+  });
+  document.getElementById("underlineBtn").addEventListener("click", function(){
+    var el = requireFocusedField(); if(!el) return;
+    wrapSelectionWith(el, "<u>", "</u>", "underlined text");
+  });
+
+  function insertList(ordered){
+    var el = requireFocusedField(); if(!el) return;
+    var start = el.selectionStart != null ? el.selectionStart : el.value.length;
+    var end = el.selectionEnd != null ? el.selectionEnd : el.value.length;
+    var hasSelection = end > start;
+    var raw = hasSelection ? el.value.slice(start, end) : "First item\nSecond item";
+    var lines = raw.split("\n").map(function(l){ return l.trim(); }).filter(Boolean);
+    if(lines.length === 0) lines = [raw];
+    var tag = ordered ? "ol" : "ul";
+    var token = "<"+tag+">" + lines.map(function(l){ return "<li>"+l+"</li>"; }).join("") + "</"+tag+">";
+    var newVal = el.value.slice(0, start) + token + el.value.slice(end);
+    el.value = newVal;
+    setPath(model, el.getAttribute("data-path"), newVal);
+    el.focus();
+    el.setSelectionRange(start, start + token.length);
+    renderPreview();
+    queueSaveDraft();
+  }
+  document.getElementById("bulletListBtn").addEventListener("click", function(){ insertList(false); });
+  document.getElementById("numberedListBtn").addEventListener("click", function(){ insertList(true); });
+
+  document.getElementById("linkBtn").addEventListener("click", async function(){
+    var el = requireFocusedField(); if(!el) return;
+    var start = el.selectionStart != null ? el.selectionStart : el.value.length;
+    var end = el.selectionEnd != null ? el.selectionEnd : el.value.length;
+    var hasSelection = end > start;
+    var linkText = hasSelection ? el.value.slice(start, end) : "link text";
+    var url = await UI.prompt("Link URL:", "https://");
+    if(!url) return;
+    var safeUrl = url.replace(/"/g, "&quot;");
+    wrapRangeWith(el, start, end, '<a href="'+safeUrl+'" target="_blank" rel="noopener">', "</a>", linkText);
+  });
 
   document.getElementById("modalSubmit").addEventListener("click", function(){
     syncModelFromDom();
@@ -979,8 +1126,11 @@
 
   document.getElementById("loadToEditBtn").addEventListener("click", function(){ loadNoteSet(false); });
   document.getElementById("loadAsCopyBtn").addEventListener("click", function(){ loadNoteSet(true); });
-  document.getElementById("newNoteSetBtn").addEventListener("click", function(){
-    if(model.blocks.length && !confirm("Clear the current note set and start a new one?")) return;
+  document.getElementById("newNoteSetBtn").addEventListener("click", async function(){
+    if(model.blocks.length){
+      var ok = await UI.confirm("Clear the current note set and start a new one?", { danger:true, confirmText:"Start new" });
+      if(!ok) return;
+    }
     resetModel();
   });
   document.getElementById("discardDraftBtn").addEventListener("click", function(){
@@ -998,6 +1148,7 @@
   };
 
   // instructor-only — students who guess this URL get bounced to home.html
+  UI.skeleton(blockList, 3);
   GuidedAuth.requireAuth(["instructor"]).then(function(profile){
     if(!profile) return;
     GuidedAuth.renderAccountBadge(document.getElementById("accountBadge"), profile);
