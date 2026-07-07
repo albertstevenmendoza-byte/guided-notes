@@ -22,18 +22,34 @@
 
         { type: "paragraph", html: "..." }
             Regular text. Drop a blank anywhere with {{b:key}}. You can use
-            basic HTML here too, e.g. <strong>bold</strong>, or even an
-            <img src="..."> tag if you're hosting an image somewhere.
+            basic HTML here too — <strong>bold</strong>, <em>italic</em>,
+            <u>underline</u>, <a href="...">links</a>, <ul><li>lists</li></ul>,
+            or even an <img src="..."> tag if you're hosting an image
+            somewhere. In the builder, select text and use the B/I/U/List/
+            Link buttons instead of typing tags by hand.
 
-        { type: "box", tone: "key" | "example" | "tip" | "question",
-          label: "...", html: "..." }
-            A highlighted callout box. Also supports {{b:key}} blanks.
-            tone controls the color + default label:
-              key      -> "Key Idea"       (teal)
-              example  -> "Example"        (gold)
-              tip      -> "Tip"            (blue)
-              question -> "Think About It" (plum)
+        { type: "box", tone: "...", label: "...", html: "..." }
+            A highlighted callout box. Also supports {{b:key}} blanks and the
+            same rich text as paragraphs. tone controls the color + default
+            label:
+              key        -> "Key Idea"       (teal)   — general takeaway
+              example    -> "Example"        (gold)
+              tip        -> "Tip"            (blue)
+              question   -> "Think About It" (plum)
+              definition -> "Definition"     (navy)   — formal term/concept
+              theorem    -> "Theorem"        (rose)   — relabel via "label"
+                            to Lemma / Corollary / Proposition as needed
+              proof      -> "Proof"          (rose, dashed, italic, ends in ∎)
+              mistake    -> "Common Mistake" (red)    — flag a frequent error
             "label" is optional — omit it to use the tone's default label.
+
+        { type: "list", ordered: false, items: ["...", "..."] }
+            A bulleted (ordered: false) or numbered (ordered: true) list.
+            Each item can contain {{b:key}} blanks and rich text.
+
+        { type: "quote", text: "...", attribution: "..." }
+            A block quote. "attribution" is optional (e.g. a mathematician's
+            name). Both fields support {{b:key}} blanks.
 
         { type: "table", caption: "...", headers: [...], rows: [[...], ...] }
             Any cell can contain a {{b:key}} blank.
